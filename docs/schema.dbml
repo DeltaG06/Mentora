@@ -1,0 +1,290 @@
+// Mentora — database schema (15 tables, 24 relationships, 8 unique indexes)
+// Source of truth for app/models. Render at dbdiagram.io.
+//
+// Conventions
+// - Every FK is ON DELETE RESTRICT (soft-delete only, nothing is ever removed).
+// - Every timestamp is timezone-aware and stored in UTC.
+// - Indexes marked PARTIAL are partial unique indexes. DBML cannot express the
+//   WHERE clause, so the exact SQL lives in docs/db-constraints.md. Do NOT
+//   implement them as plain unique indexes.
+
+Enum user_role {
+  student
+  mentor
+  admin
+}
+
+Enum user_status {
+  pending
+  active
+  deactivated
+}
+
+Enum allocation_status {
+  active
+  ended
+}
+
+Enum semester_status {
+  open
+  closed
+}
+
+// Used by internal_submissions.status and semester_results.status
+Enum submission_status {
+  pending
+  verified
+  rejected
+}
+
+Enum flag_rule {
+  F1
+  F2
+  F3
+  F4
+  F5
+}
+
+Enum flag_status {
+  open
+  in_discussion
+  resolved
+  escalated
+}
+
+Enum slot_status {
+  open
+  booked
+  completed
+  cancelled
+}
+
+Enum meeting_status {
+  scheduled
+  completed
+  cancelled
+}
+
+Enum group_session_audience {
+  all
+  flagged
+  selected
+}
+
+Enum group_session_status {
+  scheduled
+  completed
+  cancelled
+}
+
+Table users {
+  id integer [pk, increment]
+  name varchar(120) [not null]
+  email varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  role user_role [not null]
+  status user_status [not null]
+  phone varchar(20)
+  department varchar(100) [note: 'required for students and mentors']
+  roll_no varchar(30) [unique, note: 'students only']
+  year integer [note: 'students only, 1-4']
+  division varchar(10) [note: 'students only']
+  designation varchar(100) [note: 'mentors only']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table allocations {
+  id integer [pk, increment]
+  student_id integer [not null, ref: > users.id]
+  mentor_id integer [not null, ref: > users.id]
+  assigned_by integer [not null, ref: > users.id]
+  status allocation_status [not null]
+  start_date timestamptz [not null]
+  ended_at timestamptz [note: 'set when reassigned; history is kept']
+  created_at timestamptz [not null]
+
+  indexes {
+    student_id [unique, name: 'uq_one_active_allocation', note: 'PARTIAL: WHERE status = active']
+    mentor_id
+  }
+}
+
+Table semesters {
+  id integer [pk, increment]
+  label varchar(50) [not null, unique]
+  start_date date [note: 'orders semesters in time for flag baselines; when null, id order is the fallback']
+  internal_deadline timestamptz [note: 'set by admin; null until set']
+  result_deadline timestamptz [note: 'set by admin; null until set']
+  status semester_status [not null, default: 'open', note: 'closed blocks new submissions']
+  created_at timestamptz [not null]
+}
+
+Table internal_submissions {
+  id integer [pk, increment]
+  student_id integer [not null, ref: > users.id]
+  semester_id integer [not null, ref: > semesters.id]
+  status submission_status [not null]
+  rejection_note text [note: 'mandatory when rejected']
+  verified_by integer [ref: > users.id]
+  verified_at timestamptz
+  submitted_at timestamptz [not null]
+
+  indexes {
+    (student_id, semester_id) [unique, name: 'uq_one_live_internal_submission', note: 'PARTIAL: WHERE status IN (pending, verified)']
+  }
+}
+
+Table internal_marks {
+  id integer [pk, increment]
+  submission_id integer [not null, ref: > internal_submissions.id]
+  subject_name varchar(120) [not null]
+  max_per_test integer [not null, note: 'per-test maximum, e.g. 20']
+  i1 integer
+  i2 integer
+  i3 integer
+  effective_internal numeric(5,2) [note: 'AVERAGE of the best two non-null marks (out of max_per_test). Always computed server-side; the client never sends it.']
+
+  indexes {
+    (submission_id, subject_name) [unique, name: 'uq_internal_marks_submission_subject']
+  }
+}
+
+Table semester_results {
+  id integer [pk, increment]
+  student_id integer [not null, ref: > users.id]
+  semester_id integer [not null, ref: > semesters.id]
+  sgpa numeric(4,2) [not null]
+  status submission_status [not null]
+  proof_url varchar(500) [not null, note: 'file path relative to the upload directory, e.g. proofs/<uuid>.pdf; never exposed by the API']
+  rejection_note text [note: 'mandatory when rejected']
+  verified_by integer [ref: > users.id]
+  verified_at timestamptz
+  submitted_at timestamptz [not null]
+
+  indexes {
+    (student_id, semester_id) [unique, name: 'uq_one_live_semester_result', note: 'PARTIAL: WHERE status IN (pending, verified)']
+  }
+}
+
+Table result_subjects {
+  id integer [pk, increment]
+  result_id integer [not null, ref: > semester_results.id]
+  subject_name varchar(120) [not null]
+  final_marks integer [not null]
+  max_marks integer [not null]
+
+  indexes {
+    (result_id, subject_name) [unique, name: 'uq_result_subjects_result_subject']
+  }
+}
+
+Table flags {
+  id integer [pk, increment]
+  student_id integer [not null, ref: > users.id]
+  semester_id integer [not null, ref: > semesters.id]
+  rule flag_rule [not null]
+  reason text [not null]
+  status flag_status [not null]
+  raised_at timestamptz [not null]
+  escalated_at timestamptz
+  resolved_at timestamptz
+  resolved_by integer [ref: > users.id]
+  resolution_note text [note: 'mandatory when resolved']
+
+  indexes {
+    (student_id, semester_id, rule) [unique, name: 'uq_one_unresolved_flag', note: 'PARTIAL: WHERE status IN (open, in_discussion, escalated)']
+  }
+}
+
+Table slots {
+  id integer [pk, increment]
+  mentor_id integer [not null, ref: > users.id]
+  start_time timestamptz [not null]
+  end_time timestamptz [not null]
+  status slot_status [not null]
+  created_at timestamptz [not null]
+
+  indexes {
+    mentor_id
+  }
+}
+
+Table meetings {
+  id integer [pk, increment]
+  slot_id integer [not null, ref: > slots.id, note: 'mandatory; the mentor is slots.mentor_id']
+  student_id integer [not null, ref: > users.id]
+  agenda text [not null]
+  minutes text
+  status meeting_status [not null]
+  invited_by_mentor boolean [not null, default: false]
+  created_at timestamptz [not null]
+  completed_at timestamptz
+
+  indexes {
+    slot_id [unique, name: 'uq_one_live_meeting_per_slot', note: 'PARTIAL: WHERE status IN (scheduled, completed)']
+  }
+}
+
+// Composite primary key, no id column.
+Table meeting_flags {
+  meeting_id integer [not null, ref: > meetings.id]
+  flag_id integer [not null, ref: > flags.id]
+
+  indexes {
+    (meeting_id, flag_id) [pk]
+  }
+}
+
+Table group_sessions {
+  id integer [pk, increment]
+  mentor_id integer [not null, ref: > users.id]
+  title varchar(200) [not null]
+  agenda text
+  minutes text
+  audience group_session_audience [not null]
+  start_time timestamptz [not null]
+  end_time timestamptz [not null]
+  status group_session_status [not null]
+  created_at timestamptz [not null]
+}
+
+Table group_attendance {
+  id integer [pk, increment]
+  session_id integer [not null, ref: > group_sessions.id]
+  student_id integer [not null, ref: > users.id]
+  attended boolean [note: 'null until attendance is marked']
+
+  indexes {
+    (session_id, student_id) [unique, name: 'uq_group_attendance_session_student']
+  }
+}
+
+Table notifications {
+  id integer [pk, increment]
+  user_id integer [not null, ref: > users.id]
+  type varchar(50) [not null]
+  title varchar(200) [not null]
+  message text [not null]
+  is_read boolean [not null, default: false]
+  created_at timestamptz [not null]
+
+  indexes {
+    user_id
+  }
+}
+
+// Append-only.
+Table audit_log {
+  id integer [pk, increment]
+  actor_id integer [ref: > users.id, note: 'null for system actions']
+  action varchar(100) [not null]
+  entity varchar(50) [not null]
+  entity_id integer [not null]
+  details text
+  timestamp timestamptz [not null]
+
+  indexes {
+    (entity, entity_id)
+  }
+}

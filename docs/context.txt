@@ -1,0 +1,217 @@
+================================================================================
+MENTORA — PROJECT CONTEXT FILE
+Mentor-Mentee Management System | Goa College of Engineering | SE Course Lab
+Last updated: End of Phase 2, Round 1 (ER model complete)
+================================================================================
+
+1. PROJECT IDENTITY
+--------------------------------------------------------------------------------
+Name:            Mentora
+One-liner:       Digitalizes GCE's institute mentor-mentee scheme (each prof
+                 mentors 10-15 students across 4 years — currently a "gimmick"
+                 nobody takes seriously). Tracks academics, auto-flags at-risk
+                 students, enforces documented mentorship, proves compliance.
+Demo pitch:      "Our college has a mentor scheme nobody takes seriously.
+                 We made it impossible to ignore."
+Hero feature:    Flag Engine (F1-F5 rules, auto-raise, 14-day escalation)
+
+2. WORKING AGREEMENT (HOW WE COLLABORATE)
+--------------------------------------------------------------------------------
+- User = product owner. I (assistant) = senior architect/consultant.
+- NO CODE from me. User codes with Antigravity (Google AI IDE) when Sprint 1
+  starts (NOT started yet). I give plans, options with recommendations,
+  verify decisions, answer queries, produce documents (SRS, ER spec, API
+  contract).
+- Process: I ask questions with options -> user picks -> decision locked ->
+  proceed. Phase by phase. No skipping ahead.
+- User's instructor provides lab manual formats — deliverables must match them.
+- User cross-checks my output with ChatGPT (external review) — healthy, keep
+  doing it.
+- USER IS WORKING SOLO (no team). Solo adjustments active, see section 4a.
+- User wants checklists when lost — be explicit about next actions.
+
+3. TECH STACK (LOCKED)
+--------------------------------------------------------------------------------
+Backend:   FastAPI (Python 3.10+) — chosen over Express/NestJS
+Frontend:  React (+ Tailwind)
+Database:  PostgreSQL (prod) / SQLite (dev), via SQLAlchemy
+Auth:      JWT + bcrypt, role-based (student/mentor/admin)
+Docs:      FastAPI auto Swagger
+Deploy:    Free tiers (Vercel/Render/Neon) — Phase 7
+Testing:   pytest, target >=70% coverage on Flag Engine
+DB tooling: Alembic migrations in Sprint 1 (constraints spec ready, see 6a)
+
+4. PHASE PLAN & STATUS (12 WEEKS)
+--------------------------------------------------------------------------------
+Phase 0  Project setup (repo created)                     [COMPLETE — solo]
+Phase 1  Requirements -> SRS (Expt 2 format)              [COMPLETE — assembled]
+Phase 2  System design                                    [IN PROGRESS]
+         Round 1: ER model (dbdiagram.io)                 [COMPLETE]
+         Round 2: REST API contract                       [NEXT]
+         Round 3: Wireframes (tool TBD)
+         Round 4: Sequence diagrams + design doc packaging
+Phase 3  Sprint 1: auth + DB + profiles (Antigravity starts here)
+Phase 4  Sprint 2: core (records, flags, allocation, meetings)
+Phase 5  Sprint 3: advanced (compliance dashboards, polish)
+Phase 6  Testing & QA (test case doc is a graded artifact)
+Phase 7  Deployment + demo
+
+4a. SOLO DEV ADJUSTMENTS (LOCKED)
+--------------------------------------------------------------------------------
+- Should-haves strictly time-permitting. Kill list if Sprint 3 slips (in
+  order): FR-5.7 action items, FR-4.13 manual flags, FR-7.6 analytics charts.
+- Feature branches + PRs even solo (marks + safety vs bad AI-generated code).
+- Friday ritual: commit, run app, click through one full flow.
+- Protect the MVP like it's sacred.
+
+5. DECISION LOG (Q1-Q22, ALL LOCKED)
+--------------------------------------------------------------------------------
+Q1  Setting: GCE institute scheme (prof mentors 10-15 students, all 4 years)
+Q2  Matching: admin-assigned (no request/approve flow)
+Q3  Core purpose: academic tracking + flagging + guided meetings
+Q4  Admin powers: ALL 5 (manage users, oversight, reassign, analytics,
+    approve mentors)
+Q5  Registration: open; mentors stay PENDING until admin approval
+Q6  Notifications: in-app + email (WhatsApp -> future scope)
+Q7  Result entry: student self-upload + proof + mentor verify (bulk import
+    admin-side = later)
+Q8  Flag rules F1-F5 fixed/hardcoded MVP; thresholds calibrated to GCE /
+    Goa Univ 10-pt SGPA at design phase; configurable = should-have
+Q9  Students CAN see own flags (rule, reason, status)
+Q10 Meetings: slot-based. Mentor publishes slots; student books w/ agenda;
+    mentor directly invites flagged students
+Q11 Meeting docs: agenda + minutes + flag linkage = MUST; action items =
+    should-have
+Q12 Student fields: roll no (unique), dept, year(1-4), division. Same-dept
+    assignment enforced. Email-domain restriction = DEFERRED
+Q13 Mentor keeps same students all 4 years; admin reassigns on demand
+Q14 Group sessions: fixed slot, audience = ALL mentees / FLAGGED only /
+    selected. Attendance tracked
+Q15 Internals: 3 papers per subject, BEST OF TWO = effective internal score
+    (re-evaluates as tests added, locks at I3)
+Q16 Escalation window: 14 days unresolved -> admin
+Q17 Manual mentor flags (attendance/personal): SHOULD-have
+Q18 Scale: 20 concurrent for demo; architecture scalable 500 (pilot) / 2500+
+Q19 Mobile responsive: MUST-have
+Q20 NFRs + use cases + user stories: approved
+Q21 ER rendering: dbdiagram.io (paste-ready DBML delivered, user renders +
+    exports PNG). Draw.io version ON FILE — deliver when user asks at
+    submission time.
+Q22 Submission model: TWO SUBMISSION TYPES (Option A):
+    - internal_submissions (mid-sem, subject-wise I1-I3, verified -> F4 only)
+    - semester_results (sem-end, marks + SGPA + proof, verified -> F1-F3)
+    Rationale: matches academic calendar; F4 = mid-sem EARLY WARNING
+
+6. LOCKED BUSINESS RULES
+--------------------------------------------------------------------------------
+FLAG RULES:
+  F1: SGPA drop >= 1.0 vs previous semester
+  F2: any subject mark < 40
+  F3: SGPA < 6.0
+  F4: effective internal < 40% OR internal avg drop >= 15 pts vs prev sem
+  F5: upload deadline missed (two deadlines exist: internal + result)
+  - First-semester students: only absolute rules (F2, F3); F1/F4 need baseline
+  - Dedup: one UNRESOLVED flag per (rule, student, semester)
+FLAG TRIGGER MAP (Q22-A):
+  - Internal submission verified   -> evaluate F4 ONLY
+  - Semester result verified       -> evaluate F1, F2, F3
+  - Daily deadline job             -> F5 (reason records WHICH deadline missed)
+LIFECYCLE: open -> in-discussion (meeting held) -> resolved (note MANDATORY)
+           open 14 days -> ESCALATED -> admin force-resolve (note mandatory)
+ALLOCATION: 1 active mentor per student; same dept enforced; reassign keeps
+  history (end-date old record); capacity warning at 15
+MEETINGS: slot statuses open/booked/completed/cancelled; reminders T-24h, T-1h;
+  completing a meeting linked to open flag prompts resolution;
+  meetings.slot_id MANDATORY (every individual meeting anchored to a slot)
+SUBMISSIONS: pending -> verified (immutable, triggers engine) / rejected
+  (note mandatory, student re-uploads; rejected attempts RETAINED for audit)
+EFFECTIVE INTERNAL: best two of three tests, per subject; computed at
+  verification; per-test max from GCE scheme (e.g. 20)
+
+6a. DATABASE INTEGRITY STRATEGY (LOCKED)
+--------------------------------------------------------------------------------
+Defense in depth: app layer (friendly errors) + DB layer (hard guarantee).
+Viva line: "A note on a diagram is a promise; a constraint is a guarantee."
+DB-ENFORCED (partial unique indexes — SQL spec saved in docs/db-constraints.md,
+  goes into Alembic migration Sprint 1. DBML cannot express WHERE clause —
+  diagram shows plain unique + note; do NOT let Antigravity copy DBML index
+  literally):
+  - allocations: 1 active per student WHERE status='active'
+  - internal_submissions: 1 live per (student,sem) WHERE status IN
+    (pending,verified) — rejected unlimited
+  - semester_results: same as above
+  - flags: 1 unresolved per (rule,student,sem) WHERE status IN
+    (open,in_discussion,escalated)
+  - meetings: 1 non-cancelled per slot (partial)
+PLAIN UNIQUES: internal_marks (submission_id,subject_name); result_subjects
+  (result_id,subject_name); group_attendance (session_id,student_id)
+APP-LAYER ONLY (correct answer, no DB constraint possible/practical):
+  - verified-record immutability (mention DB trigger as enterprise option)
+  - same-department allocation validation
+  - capacity warning at 15
+NOTE: SQLite AND PostgreSQL both support partial indexes — no portability issue.
+FK deletes default to RESTRICT — correct, soft-delete only.
+
+7. PERSONAS (APPROVED, IN SRS)
+--------------------------------------------------------------------------------
+- Prof. Anjali Desai, 45 — mentor, Mech dept, 13 mentees, discovers failures
+  too late
+- Rohan Naik, 19 — 2nd yr CSE mentee, SGPA 8.2 -> 6.4, doesn't know his mentor
+- Ms. Shweta Kamat, 38 — admin, HOD-office coordinator, lives in Excel
+
+8. REQUIREMENTS SUMMARY (SRS DELIVERED IN 3 CHUNKS, ASSEMBLED BY USER)
+--------------------------------------------------------------------------------
+7 modules, 60 numbered FRs (M/S priority):
+  1. Auth & user mgmt (8)   2. Mentorship allocation (7)
+  3. Academic records (8)   4. Flag engine (14)  <- hero
+  5. Meetings/slots/groups (13)  6. Notifications (4)  7. Dashboards (6)
+NFRs: perf (2s API), security (JWT/bcrypt/role, HTTPS, DPDP Act 2023 mention),
+  reliability (99%, daily backups), usability (upload < 3 min, mobile MUST),
+  maintainability (modular monolith, flag tests >= 70%), portability
+Other: audit log (immutable), soft-delete only, GU/GCE academic conformity
+
+9. DATA MODEL (15 TABLES, 24 RELATIONSHIPS, 8 UNIQUE INDEXES — ER LOCKED)
+--------------------------------------------------------------------------------
+users, allocations, semesters (BOTH internal_deadline + result_deadline),
+internal_submissions, internal_marks (i1,i2,i3,effective_internal),
+semester_results, result_subjects (final marks only, NO i1-i3), flags, slots,
+meetings, meeting_flags, group_sessions, group_attendance, notifications,
+audit_log (append-only)
+Q22-A ripples: internal submission pair separate; result_subjects dropped
+internal columns; semesters has two deadlines; meetings.slot_id mandatory.
+ER rendered in dbdiagram.io; DBML + patches delivered; user exports PNG for
+journal + repo /docs.
+
+10. FUTURE SCOPE (PARKED — IN SRS/REPORT, NOT BUILT)
+--------------------------------------------------------------------------------
+WhatsApp Cloud API reminders, alumni portal, peer mentoring, auto-matching,
+bulk Excel import, admin-configurable thresholds via UI
+
+11. OPEN ITEMS / USER HOMEWORK
+--------------------------------------------------------------------------------
+- User checklist in progress: (1) apply DBML patches in dbdiagram.io,
+  (2) export ER PNG, (3) create repo docs/ + docs/db-constraints.md,
+  (4) update context.txt [THIS FILE — done when saved]
+- Get Expt 3 manual/format from sir (design experiment packaging)
+- Ask sir: use-case diagram required for Expt 2? (if yes, I provide PlantUML)
+- Draw.io ER version: deliver on request at submission time
+- Antigravity NOT started yet — begins Sprint 1 (Phase 3)
+
+12. NEXT SESSION: PHASE 2, ROUND 2 — REST API CONTRACT
+--------------------------------------------------------------------------------
+Draft module by module for approval (same rhythm as FRs). This is the doc fed
+to Antigravity endpoint-by-endpoint, precision pays double. After contract:
+Round 3 wireframes, Round 4 sequence diagrams (hero flows: verify->flag,
+book-slot) + design doc assembly into Expt 3 format.
+
+13. DEMO STORY (MEMORIZE — VIVA CLOSER)
+--------------------------------------------------------------------------------
+Shweta assigns Rohan to Prof. Desai -> Rohan uploads result (SGPA 8.2->6.4,
+proof) -> Desai verifies -> F1 flag auto-fires, both notified -> Desai sees
+red on roster -> invites Rohan to slot -> meeting held, minutes + action item
+-> flag resolved with note -> Shweta's compliance dashboard proves the scheme
+works.
+
+================================================================================
+END OF CONTEXT — paste this at the start of any new session to resume.
+================================================================================
