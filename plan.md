@@ -36,7 +36,7 @@ Step	Name	Status	Commit
 8	Internal submissions	✅	ef20228
 9	Semester results + proof files	✅	ef20228
 10	Slots + meetings + group sessions	✅	27124bc
-11	Notifications + email + scheduled jobs	⬜	
+11	Notifications + email + scheduled jobs	✅	2c63e54
 12	Dashboards	⬜	
 13	Frontend scaffold	⬜	
 14	Auth flow + layouts	⬜	
