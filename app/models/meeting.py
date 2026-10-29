@@ -10,7 +10,7 @@ from sqlalchemy import (
     false,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models.enums import (
@@ -19,7 +19,9 @@ from app.models.enums import (
     MeetingStatus,
     SlotStatus,
 )
+from app.models.flag import Flag
 from app.models.types import UTCDateTime, db_enum, utcnow
+from app.models.user import User
 
 LIVE_MEETING = "status IN ('scheduled', 'completed')"
 
@@ -35,6 +37,8 @@ class Slot(Base):
     end_time: Mapped[datetime] = mapped_column(UTCDateTime)
     status: Mapped[SlotStatus] = mapped_column(db_enum(SlotStatus, "slot_status"))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    mentor: Mapped[User] = relationship()
 
 
 class Meeting(Base):
@@ -63,6 +67,19 @@ class Meeting(Base):
     )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Set once the T-24h / T-1h reminder has gone out, so each fires once.
+    rem_24_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    rem_1h_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+
+    slot: Mapped[Slot] = relationship()
+    student: Mapped[User] = relationship()
+    flags: Mapped[list[Flag]] = relationship(
+        secondary="meeting_flags", order_by="Flag.id", viewonly=True
+    )
 
 
 class MeetingFlag(Base):
@@ -93,6 +110,18 @@ class GroupSession(Base):
         db_enum(GroupSessionStatus, "group_session_status")
     )
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    # Set once the T-24h / T-1h reminder has gone out, so each fires once.
+    rem_24_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    rem_1h_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+
+    mentor: Mapped[User] = relationship()
+    attendance: Mapped[list["GroupAttendance"]] = relationship(
+        order_by="GroupAttendance.id"
+    )
 
 
 class GroupAttendance(Base):
@@ -110,3 +139,15 @@ class GroupAttendance(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     # None until attendance is marked.
     attended: Mapped[bool | None]
+
+    student: Mapped[User] = relationship()
+
+
+# The slot's live (scheduled or completed) meeting, if any.
+Slot.meeting = relationship(
+    Meeting,
+    primaryjoin=(Slot.id == Meeting.slot_id)
+    & Meeting.status.in_((MeetingStatus.scheduled, MeetingStatus.completed)),
+    uselist=False,
+    viewonly=True,
+)

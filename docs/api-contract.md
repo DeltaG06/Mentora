@@ -1,7 +1,6 @@
 # Mentora — REST API Contract
 
-Modules 1–6 are implemented. Meetings, notifications and dashboards are added
-as they are designed.
+Modules 1–11 are implemented.
 
 ## Global Conventions
 
@@ -557,6 +556,228 @@ notified (`FLAG_RESOLVED`) and an `audit_log` row is written (`flag.resolve`).
 - `404` flag not visible to the caller
 - `409` `Flag is already resolved`
 - `422` note missing, empty or whitespace
+
+---
+
+## Module 7 — Slots
+
+A mentor publishes time slots; a student books one, or the mentor invites a
+mentee into one. There is no overlap detection (accepted limitation).
+
+Slot object:
+
+```json
+{
+  "id": 3,
+  "mentor_id": 4,
+  "start_time": "2026-10-20T09:30:00Z",
+  "end_time": "2026-10-20T10:00:00Z",
+  "status": "booked",
+  "created_at": "2026-10-05T09:30:00Z",
+  "meeting": {"id": 8, "student": {"id": 7, "name": "Rohan Naik", "roll_no": "23CE045"}, "agenda": "SGPA drop", "status": "scheduled"}
+}
+```
+
+`meeting` is the slot's live (`scheduled` or `completed`) meeting, or null.
+
+### POST /mentor/slots
+
+Mentor only. Body: `{"date_time": "<aware timestamp>", "duration_minutes": 30}`
+(`duration_minutes` 5–240, default 30). The slot is created `open`.
+
+- `201` Slot object
+- `400` `Slot must be in the future`
+- `422` validation error (including a timestamp without a timezone)
+
+### GET /mentor/slots
+
+Mentor only. Query: `status`, `from`, `to` (timestamps, inclusive on
+`start_time`). Ordered by `start_time`. Not paginated.
+
+### PATCH /mentor/slots/{id}/cancel
+
+Mentor only, own slot. `open` → `cancelled`. A `booked` slot is cancelled
+together with its scheduled meeting and the student is notified
+(`MEETING_CANCELLED`).
+
+- `200` Slot object
+- `404` `Slot not found` (missing or another mentor's)
+- `409` `Slot is already <status>` (completed or cancelled)
+
+### GET /students/me/mentor/slots
+
+Student only. The active mentor's `open` slots that have not started yet.
+
+- `200` list of Slot objects
+- `404` `No mentor assigned`
+
+---
+
+## Module 8 — Meetings
+
+Every meeting is anchored to a slot (`meetings.slot_id` is mandatory); the
+mentor is the slot's mentor.
+
+Meeting object:
+
+```json
+{
+  "id": 8,
+  "slot": {"id": 3, "start_time": "...", "end_time": "...", "status": "booked", "mentor": {"id": 4, "name": "Anjali Desai"}},
+  "student": {"id": 7, "name": "Rohan Naik", "roll_no": "23CE045"},
+  "agenda": "SGPA drop",
+  "minutes": null,
+  "status": "scheduled",
+  "invited_by_mentor": false,
+  "created_at": "2026-10-05T09:30:00Z",
+  "completed_at": null,
+  "linked_flags": [Flag, ...]
+}
+```
+
+`status` is `scheduled`, `completed` or `cancelled`.
+
+### POST /slots/{id}/book
+
+Student only. Body: `{"agenda": "..."}` (required, not blank). The slot must
+belong to the caller's active mentor, be `open` and not have started. Creates
+a `scheduled` meeting, marks the slot `booked`, notifies student and mentor
+(`MEETING_BOOKED`).
+
+- `201` Meeting object
+- `400` `Slot has already started`
+- `404` `Slot not found` (missing or not the caller's mentor's)
+- `409` `Slot is not open`
+- `422` agenda missing or blank
+
+### POST /mentor/slots/{id}/invite
+
+Mentor only, own slot. Body: `{"student_id": 7, "agenda": "..."}`; `agenda`
+defaults to `Mentor-initiated guidance meeting`. Same rules as booking;
+`invited_by_mentor` is true and the student is notified (`MEETING_BOOKED`).
+
+- `201` Meeting object
+- `404` `Slot not found` / `Student not found` (not an active mentee)
+- `409` `Slot is not open`
+
+### GET /students/me/meetings and GET /mentor/meetings
+
+The caller's meetings, ordered by slot start. Query: `status`, `upcoming`
+(`true` = slot not started yet, `false` = started). The mentor route also
+accepts `student_id`. Not paginated.
+
+### GET /meetings/{id}
+
+The meeting's student or mentor only; everyone else gets
+`404 Meeting not found`.
+
+### POST /meetings/{id}/cancel
+
+Student or mentor party to the meeting. Only a `scheduled` meeting can be
+cancelled. A student must cancel at least 2 hours before the slot starts; a
+mentor can cancel any time before completion. The slot reverts to `open` and
+the other party is notified (`MEETING_CANCELLED`).
+
+- `200` Meeting object
+- `400` `Meetings can only be cancelled at least 2 hours before the slot`
+- `404` `Meeting not found`
+- `409` `Meeting is already <status>`
+
+### POST /meetings/{id}/complete
+
+Mentor only, own meeting. Body:
+`{"minutes": "...", "linked_flag_ids": [12, 13]}` (minutes required, not
+blank). Each flag must belong to the meeting's student and be unresolved.
+
+The meeting becomes `completed` (`completed_at` set) and the slot
+`completed`. Every linked flag is recorded in `meeting_flags`; linked `open`
+flags move to `in_discussion` (escalated flags stay escalated). An
+`audit_log` row is written (`meeting.complete`). The frontend uses
+`flags_moved` to prompt the mentor to resolve them.
+
+- `200` `{"meeting": Meeting, "flags_moved": [Flag, ...]}`
+- `400` `Flag <id> does not belong to this student` / `Flag <id> is already resolved`
+- `403` caller is not a mentor
+- `404` `Meeting not found`
+- `409` `Meeting is already <status>`
+- `422` minutes missing or blank
+
+---
+
+## Module 9 — Group Sessions
+
+Group session object:
+
+```json
+{
+  "id": 2,
+  "mentor": {"id": 4, "name": "Anjali Desai"},
+  "title": "Exam strategy",
+  "agenda": null,
+  "minutes": null,
+  "audience": "flagged",
+  "start_time": "...",
+  "end_time": "...",
+  "status": "scheduled",
+  "created_at": "...",
+  "attendees": [{"student": {"id": 7, "name": "Rohan Naik", "roll_no": "23CE045"}, "attended": null}]
+}
+```
+
+`attended` is null until the session is completed.
+
+### POST /mentor/group-sessions
+
+Mentor only. Body:
+
+| Field | Rules |
+| --- | --- |
+| `date_time` | aware timestamp in the future |
+| `duration_minutes` | 5–480, default 60 |
+| `title` | required, 1–200 chars |
+| `agenda` | optional |
+| `audience` | `all`, `flagged` or `selected` |
+| `student_ids` | required for `selected`; ignored otherwise |
+
+The server resolves the audience: `all` = every active mentee; `flagged` =
+active mentees with at least one unresolved flag; `selected` = the given ids,
+each of which must be an active mentee. One attendance row is created per
+invitee and each is notified (`GROUP_INVITE`).
+
+- `201` Group session object
+- `400` `Session must be in the future` / `No students match this audience`
+- `404` `Student not found: <id>`
+- `422` validation error
+
+### GET /mentor/group-sessions and GET /students/me/group-sessions
+
+The mentor's sessions, or the sessions the student was invited to. Query:
+`status`. Ordered by start time. Not paginated.
+
+### GET /group-sessions/{id}
+
+The owning mentor, an invited student, or an admin. Otherwise
+`404 Group session not found`.
+
+### POST /mentor/group-sessions/{id}/complete
+
+Mentor only, own `scheduled` session. Body:
+`{"minutes": "...", "attendance": [{"student_id": 7, "present": true}]}`.
+Invitees not listed are recorded absent. Writes `group_session.complete` to
+the audit log.
+
+- `200` Group session object
+- `400` `Student <id> was not invited to this session`
+- `404` `Group session not found`
+- `409` `Group session is already <status>`
+
+### POST /mentor/group-sessions/{id}/cancel
+
+Mentor only, own `scheduled` session. Every invitee is notified
+(`MEETING_CANCELLED`).
+
+- `200` Group session object
+- `404` / `409` as above
 
 ---
 

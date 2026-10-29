@@ -220,6 +220,8 @@ Table meetings {
   invited_by_mentor boolean [not null, default: false]
   created_at timestamptz [not null]
   completed_at timestamptz
+  rem_24_sent boolean [not null, default: false, note: 'T-24h reminder sent']
+  rem_1h_sent boolean [not null, default: false, note: 'T-1h reminder sent']
 
   indexes {
     slot_id [unique, name: 'uq_one_live_meeting_per_slot', note: 'PARTIAL: WHERE status IN (scheduled, completed)']
@@ -247,6 +249,8 @@ Table group_sessions {
   end_time timestamptz [not null]
   status group_session_status [not null]
   created_at timestamptz [not null]
+  rem_24_sent boolean [not null, default: false, note: 'T-24h reminder sent']
+  rem_1h_sent boolean [not null, default: false, note: 'T-1h reminder sent']
 }
 
 Table group_attendance {

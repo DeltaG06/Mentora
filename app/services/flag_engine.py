@@ -368,3 +368,16 @@ def run_deadline_scan(db: Session, now: datetime) -> list[Flag]:
                     raise_flags(db, student, semester, [(FlagRule.F5, reason)])
                 )
     return created
+
+
+def start_discussion(db: Session, flags: list[Flag]) -> list[Flag]:
+    """A meeting about these flags was held: open flags move to in_discussion.
+
+    Escalated flags stay escalated (they are on the admin's desk) and resolved
+    flags are untouched. Returns the flags that moved.
+    """
+    moved = [flag for flag in flags if flag.status == FlagStatus.open]
+    for flag in moved:
+        flag.status = FlagStatus.in_discussion
+    db.flush()
+    return moved

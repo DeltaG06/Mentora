@@ -5,7 +5,9 @@ from app.api.routes import (
     allocations,
     auth,
     flags,
+    group_sessions,
     internal_submissions,
+    meetings,
     results,
     semesters,
     users,
@@ -21,3 +23,5 @@ api_router.include_router(semesters.router)
 api_router.include_router(internal_submissions.router)
 api_router.include_router(results.router)
 api_router.include_router(flags.router)
+api_router.include_router(meetings.router)
+api_router.include_router(group_sessions.router)
