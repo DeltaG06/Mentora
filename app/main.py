@@ -1,11 +1,31 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.core.config import settings
+from app.jobs import create_scheduler
 
 API_PREFIX = "/api/v1"
 
-app = FastAPI(title="Mentora API")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # One scheduler per process: run a single worker, or disable it with
+    # SCHEDULER_ENABLED=false and use POST /admin/jobs/run from an external cron.
+    scheduler = create_scheduler() if settings.SCHEDULER_ENABLED else None
+    if scheduler is not None:
+        scheduler.start()
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title="Mentora API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

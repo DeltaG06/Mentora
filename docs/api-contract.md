@@ -1,6 +1,6 @@
 # Mentora — REST API Contract
 
-Modules 1–11 are implemented.
+Modules 1–10 are implemented. Dashboards (Module 11) are added next.
 
 ## Global Conventions
 
@@ -778,6 +778,86 @@ Mentor only, own `scheduled` session. Every invitee is notified
 
 - `200` Group session object
 - `404` / `409` as above
+
+---
+
+## Module 10 — Notifications & Scheduled Jobs
+
+Notifications are created by the server (see each module) and are the
+canonical channel. Every role has them; a user only ever sees their own.
+
+Notification object:
+
+```json
+{
+  "id": 12,
+  "type": "FLAG_RAISED",
+  "title": "Flag raised: F1",
+  "message": "SGPA fell from 8.2 to 6.4",
+  "is_read": false,
+  "created_at": "2026-10-05T09:30:00Z"
+}
+```
+
+`type` is one of `ALLOCATION`, `FLAG_RAISED`, `FLAG_ESCALATED`,
+`FLAG_RESOLVED`, `SUBMISSION_VERIFIED`, `SUBMISSION_REJECTED`,
+`MEETING_BOOKED`, `MEETING_CANCELLED`, `MEETING_REMINDER`, `GROUP_INVITE`,
+`ACCOUNT_STATUS`.
+
+**Email.** `FLAG_RAISED`, `FLAG_ESCALATED`, `MEETING_BOOKED` and
+`MEETING_REMINDER` are also emailed to the recipient, after the change is
+committed and in the background (never delaying the response). Configured by
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`,
+`SMTP_STARTTLS`; with `SMTP_HOST` unset the email is logged and skipped.
+
+### GET /notifications
+
+Any role. Own notifications, newest first, paginated.
+
+- `200` `{"items": [Notification], "total", "page", "page_size"}`
+
+### GET /notifications/unread-count
+
+Any role. For the notification badge.
+
+- `200` `{"count": 3}`
+
+### PATCH /notifications/{id}/read
+
+Any role, own notification. Idempotent.
+
+- `200` Notification object
+- `404` `Notification not found` (also when it belongs to someone else)
+
+### POST /notifications/read-all
+
+Any role. Marks every own unread notification read.
+
+- `204`
+
+### Scheduled jobs
+
+Run in-process by APScheduler (schedules in Asia/Kolkata; stored times UTC).
+Disable with `SCHEDULER_ENABLED=false`; run a single worker otherwise.
+
+| Job | Schedule | Does |
+| --- | --- | --- |
+| Daily | 00:05 IST | `run_deadline_scan` (F5), then `escalate_stale_flags`; each escalation writes an `audit_log` row (`flag.escalate`, no actor) |
+| Reminders | every 15 min | scheduled meetings and group sessions starting within 24h get a T-24h reminder; within 1h, a T-1h reminder (`MEETING_REMINDER`) |
+
+Reminders go to both parties of a meeting, and to the mentor and every invitee
+of a group session. Each fires once (`rem_24_sent`, `rem_1h_sent`); anything
+first seen inside the last hour gets only the T-1h reminder.
+
+### POST /admin/jobs/run
+
+Fallback for hosts that sleep: an external cron (e.g. cron-job.org) calls this
+every 15 minutes. No user token; header `X-Job-Secret: <JOB_SECRET>`. Runs
+both jobs, which are idempotent.
+
+- `200` `{"deadline_flags_raised": 0, "flags_escalated": 1, "reminders_sent": 2}`
+- `401` `Invalid job secret`
+- `404` when `JOB_SECRET` is not configured (endpoint disabled)
 
 ---
 

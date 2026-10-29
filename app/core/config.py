@@ -11,6 +11,20 @@ class Settings(BaseSettings):
     # Uploaded proof files live under <UPLOAD_DIR>/proofs/. Never served statically.
     UPLOAD_DIR: str = "uploads"
 
+    # Outgoing email. With SMTP_HOST unset, emails are logged and skipped.
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str = "Mentora <no-reply@mentora.local>"
+    SMTP_STARTTLS: bool = True
+
+    # In-process APScheduler (deadline scan, escalation, reminders).
+    SCHEDULER_ENABLED: bool = True
+    # Shared secret for POST /admin/jobs/run (external cron fallback).
+    # Unset disables the endpoint.
+    JOB_SECRET: str | None = None
+
     # Only read by scripts/seed_admin.py.
     ADMIN_EMAIL: str | None = None
     ADMIN_PASSWORD: str | None = None

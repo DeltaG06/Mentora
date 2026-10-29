@@ -7,7 +7,9 @@ from app.api.routes import (
     flags,
     group_sessions,
     internal_submissions,
+    jobs,
     meetings,
+    notifications,
     results,
     semesters,
     users,
@@ -25,3 +27,5 @@ api_router.include_router(results.router)
 api_router.include_router(flags.router)
 api_router.include_router(meetings.router)
 api_router.include_router(group_sessions.router)
+api_router.include_router(notifications.router)
+api_router.include_router(jobs.router)

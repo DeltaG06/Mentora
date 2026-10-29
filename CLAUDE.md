@@ -43,7 +43,8 @@ app/core/flag_config.py  flag thresholds (the only place they are defined)
 app/api/deps.py        get_current_user, require_roles
 app/api/common.py      shared submission helpers (open semester, mentee scoping)
 app/api/routes/        one router per module, mounted in app/api/router.py
-app/services/          flag_engine, notifications, audit, allocations, proof_storage
+app/services/          flag_engine, notifications, email, reminders, audit, allocations, proof_storage
+app/jobs.py            scheduled jobs (APScheduler) + run_* functions that commit
 alembic/               migrations
 scripts/               operational scripts (seed_admin)
 tests/                 pytest; conftest builds a temp DB from the migrations
@@ -67,6 +68,7 @@ tests/                 pytest; conftest builds a temp DB from the migrations
 - Services (`app/services/`) only flush; the route or job that calls them commits.
 - Notifications go through `app.services.notifications.create_notification`
   with its type constants. No inline type strings, no email sending in callers.
+  Emails for `EMAIL_TYPES` are queued on the session and sent after commit.
 - Flag rules live in `app/services/flag_engine.py` (no HTTP concerns) and read
   thresholds from `app/core/flag_config.py`. Routes stay a thin layer.
 - Proof files live under `uploads/proofs/` and are only reachable through the

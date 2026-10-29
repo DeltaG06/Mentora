@@ -11,6 +11,7 @@ from app.core import security
 from app.core.config import settings
 from app.db import get_db, make_engine
 from app.main import app
+from app.services import email as email_service
 from scripts.seed_admin import seed_admin
 from tests.helpers import ADMIN_EMAIL, ADMIN_PASSWORD, login_headers
 
@@ -47,6 +48,27 @@ def upload_dir(tmp_path, monkeypatch):
     path = tmp_path / "uploads"
     monkeypatch.setattr(settings, "UPLOAD_DIR", str(path))
     return path
+
+
+@pytest.fixture(autouse=True)
+def no_background_work(monkeypatch):
+    """No scheduler thread and no real SMTP, whatever .env says."""
+    monkeypatch.setattr(settings, "SCHEDULER_ENABLED", False)
+    monkeypatch.setattr(settings, "SMTP_HOST", None)
+    monkeypatch.setattr(settings, "JOB_SECRET", None)
+
+
+@pytest.fixture()
+def sent_emails(monkeypatch):
+    """Run email dispatch inline and record (to, subject, body) instead of sending."""
+    outbox = []
+
+    class InlineExecutor:
+        def submit(self, fn, *args):
+            outbox.append(args)
+
+    monkeypatch.setattr(email_service, "_executor", InlineExecutor())
+    return outbox
 
 
 @pytest.fixture()
