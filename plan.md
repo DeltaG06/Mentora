@@ -35,7 +35,7 @@ Step	Name	Status	Commit
 7	Flag engine + flag endpoints	✅	ef20228
 8	Internal submissions	✅	ef20228
 9	Semester results + proof files	✅	ef20228
-10	Slots + meetings + group sessions	⬜	
+10	Slots + meetings + group sessions	✅	27124bc
 11	Notifications + email + scheduled jobs	⬜	
 12	Dashboards	⬜	
 13	Frontend scaffold	⬜	
