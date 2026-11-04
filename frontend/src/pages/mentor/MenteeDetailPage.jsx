@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarPlus, Mail, Phone } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import { LineChart } from '../../components/charts/Charts'
 import { FlagTable } from '../../components/domain/FlagTable'
 import { InviteModal } from '../../components/domain/InviteModal'
-import { MeetingItem } from '../../components/domain/MeetingItem'
+import { effectiveText } from '../../components/domain/MarksGrid'
+import { MeetingTable } from '../../components/domain/MeetingTable'
 import { ResolveFlagModal } from '../../components/domain/ResolveFlagModal'
-import { IndicatorDot } from '../../components/ui/Badge'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
-import { EmptyState, ErrorState, Spinner } from '../../components/ui/Feedback'
+import { Button, LinkButton } from '../../components/ui/Button'
+import { Panel, SummaryCard } from '../../components/ui/Card'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState, ErrorState, Skeleton, SkeletonRows } from '../../components/ui/Feedback'
+import { IndicatorDot } from '../../components/ui/Status'
 import { Tabs } from '../../components/ui/Tabs'
+import { useBreadcrumb } from '../../lib/breadcrumb'
 import { formatDate, formatSgpa } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 
@@ -20,92 +22,34 @@ function indicatorFor(flags) {
   return 'green'
 }
 
-function ResultsHistory({ results }) {
-  if (results.length === 0) return <EmptyState title="No verified results yet" />
-  return (
-    <div className="space-y-6">
-      {results.length > 1 && (
-        <LineChart
-          points={results.map((r) => ({ label: r.semester.label, value: r.sgpa }))}
-          reference={{ value: 6, label: 'F3 threshold (6.0)' }}
-        />
-      )}
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="border-b border-slate-200">
-            <tr>
-              <th className="table-head">Semester</th>
-              <th className="table-head">SGPA</th>
-              <th className="table-head">Subjects below 40</th>
-              <th className="table-head">Verified</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {results.map((r) => {
-              const weak = r.subjects.filter((s) => s.final_marks < 40)
-              return (
-                <tr key={r.id}>
-                  <td className="table-cell font-medium text-slate-900">{r.semester.label}</td>
-                  <td className={`table-cell tabular-nums ${r.sgpa < 6 ? 'font-medium text-red-600' : ''}`}>
-                    {formatSgpa(r.sgpa)}
-                  </td>
-                  <td className="table-cell">
-                    {weak.length ? weak.map((s) => `${s.subject_name} (${s.final_marks})`).join(', ') : '—'}
-                  </td>
-                  <td className="table-cell">{formatDate(r.verified_at)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
+const RESULT_COLUMNS = [
+  { key: 'semester', header: 'Semester', render: (r) => r.semester.label },
+  {
+    key: 'sgpa',
+    header: 'SGPA',
+    align: 'right',
+    render: (r) => <span className={r.sgpa < 6 ? 'text-red-600' : ''}>{formatSgpa(r.sgpa)}</span>,
+  },
+  {
+    key: 'weak',
+    header: 'Subjects below 40',
+    mobileFull: true,
+    render: (r) => {
+      const weak = r.subjects.filter((s) => s.final_marks < 40)
+      return weak.length ? weak.map((s) => `${s.subject_name} (${s.final_marks})`).join(', ') : null
+    },
+  },
+  { key: 'verified', header: 'Verified', render: (r) => formatDate(r.verified_at) },
+]
 
-function InternalsHistory({ submissions }) {
-  if (submissions.length === 0) return <EmptyState title="No verified internal marks yet" />
-  return (
-    <div className="space-y-5">
-      {submissions.map((sub) => (
-        <div key={sub.id}>
-          <p className="mb-2 text-sm font-semibold text-slate-900">{sub.semester.label}</p>
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="table-head">Subject</th>
-                  <th className="table-head text-center">I1</th>
-                  <th className="table-head text-center">I2</th>
-                  <th className="table-head text-center">I3</th>
-                  <th className="table-head text-right">Effective</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sub.subjects.map((s) => {
-                  const pct = (s.effective_internal / s.max_per_test) * 100
-                  return (
-                    <tr key={s.subject_name}>
-                      <td className="table-cell text-slate-900">{s.subject_name}</td>
-                      {[s.i1, s.i2, s.i3].map((m, i) => (
-                        <td key={i} className="table-cell text-center tabular-nums">
-                          {m ?? '—'}
-                        </td>
-                      ))}
-                      <td className={`table-cell text-right tabular-nums ${pct < 40 ? 'font-medium text-red-600' : ''}`}>
-                        {s.effective_internal.toFixed(1)}/{s.max_per_test} ({pct.toFixed(0)}%)
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
+const INTERNAL_COLUMNS = [
+  { key: 'subject_name', header: 'Subject' },
+  { key: 'i1', header: 'I1', align: 'right' },
+  { key: 'i2', header: 'I2', align: 'right' },
+  { key: 'i3', header: 'I3', align: 'right' },
+  { key: 'max_per_test', header: 'Max / test', align: 'right' },
+  { key: 'effective', header: 'Effective', align: 'right', render: effectiveText },
+]
 
 export default function MenteeDetailPage() {
   const { studentId } = useParams()
@@ -113,17 +57,31 @@ export default function MenteeDetailPage() {
   const [tab, setTab] = useState('flags')
   const [resolving, setResolving] = useState(null)
   const [inviting, setInviting] = useState(false)
+  useBreadcrumb(state.data?.student.name)
 
-  if (state.loading && !state.data) return <Spinner />
   if (state.error && !state.data) {
     if (state.error.response?.status === 404) {
       return (
-        <EmptyState title="Student not found" action={<Link to="/mentor" className="text-sm link">Back to your roster</Link>}>
-          This student is not one of your current mentees.
-        </EmptyState>
+        <div className="panel">
+          <EmptyState
+            message="This student is not one of your current mentees."
+            action={<LinkButton to="/mentor">Back to roster</LinkButton>}
+          />
+        </div>
       )
     }
     return <ErrorState error={state.error} onRetry={state.reload} />
+  }
+  if (!state.data) {
+    return (
+      <>
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="mt-2 h-4 w-80" />
+        <div className="panel mt-6">
+          <SkeletonRows />
+        </div>
+      </>
+    )
   }
 
   const { student, results, internal_submissions: internals, flags, meetings } = state.data
@@ -132,57 +90,39 @@ export default function MenteeDetailPage() {
 
   return (
     <>
-      <Link to="/mentor" className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Roster
-      </Link>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{student.name}</h1>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-lg font-semibold">{student.name}</h1>
             <IndicatorDot indicator={indicatorFor(flags)} withLabel />
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            {student.roll_no} · {student.department} · Year {student.year}, Division {student.division}
+          <p className="mt-0.5 text-base text-neutral-500">
+            <span className="font-mono text-sm">{student.roll_no}</span> · {student.department} · Year {student.year}, Division{' '}
+            {student.division}
           </p>
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-            <a href={`mailto:${student.email}`} className="inline-flex items-center gap-1.5 link">
-              <Mail className="h-3.5 w-3.5" aria-hidden /> {student.email}
+          <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
+            <a href={`mailto:${student.email}`} className="link">
+              {student.email}
             </a>
             {student.phone && (
-              <a href={`tel:${student.phone}`} className="inline-flex items-center gap-1.5 link">
-                <Phone className="h-3.5 w-3.5" aria-hidden /> {student.phone}
+              <a href={`tel:${student.phone}`} className="link">
+                {student.phone}
               </a>
             )}
-          </div>
+          </p>
         </div>
-        <Button icon={CalendarPlus} onClick={() => setInviting(true)}>
-          Invite to a meeting
-        </Button>
+        <Button onClick={() => setInviting(true)}>Invite to a meeting</Button>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="card px-4 py-3">
-          <p className="text-xs text-slate-500">Latest SGPA</p>
-          <p className={`text-xl font-semibold tabular-nums ${latest && latest.sgpa < 6 ? 'text-red-600' : ''}`}>
-            {formatSgpa(latest?.sgpa)}
-          </p>
-        </div>
-        <div className="card px-4 py-3">
-          <p className="text-xs text-slate-500">Unresolved flags</p>
-          <p className={`text-xl font-semibold tabular-nums ${unresolved ? 'text-red-600' : ''}`}>{unresolved}</p>
-        </div>
-        <div className="card px-4 py-3">
-          <p className="text-xs text-slate-500">Meetings held</p>
-          <p className="text-xl font-semibold tabular-nums">{meetings.filter((m) => m.status === 'completed').length}</p>
-        </div>
-        <div className="card px-4 py-3">
-          <p className="text-xs text-slate-500">Semesters on record</p>
-          <p className="text-xl font-semibold tabular-nums">{results.length}</p>
-        </div>
+        <SummaryCard label="Latest SGPA" value={formatSgpa(latest?.sgpa)} tone={latest && latest.sgpa < 6 ? 'red' : undefined} />
+        <SummaryCard label="Unresolved flags" value={unresolved} tone={unresolved ? 'red' : undefined} />
+        <SummaryCard label="Meetings held" value={meetings.filter((m) => m.status === 'completed').length} />
+        <SummaryCard label="Semesters on record" value={results.length} />
       </div>
 
-      <Card bodyClassName="">
-        <div className="px-4 pt-2 sm:px-5">
+      <Panel bodyClassName="">
+        <div className="border-b border-neutral-200 px-4 md:px-5">
           <Tabs
             tabs={[
               { value: 'flags', label: 'Flags', count: flags.length },
@@ -194,41 +134,73 @@ export default function MenteeDetailPage() {
             onChange={setTab}
           />
         </div>
+
         {tab === 'flags' &&
           (flags.length === 0 ? (
-            <EmptyState title="No flags on record" />
+            <EmptyState
+              message="This student has no flags on record."
+              action={
+                <Button variant="secondary" onClick={() => setTab('results')}>
+                  View results
+                </Button>
+              }
+            />
           ) : (
-            <FlagTable flags={flags} onResolve={setResolving} />
+            <FlagTable flags={flags} detailPath={(flag) => `/mentor/flags/${flag.id}`} onResolve={setResolving} />
           ))}
-        {tab === 'results' && (
-          <div className="p-4 sm:p-5">
-            <ResultsHistory results={results} />
-          </div>
-        )}
-        {tab === 'internals' && (
-          <div className="p-4 sm:p-5">
-            <InternalsHistory submissions={internals} />
-          </div>
-        )}
+
+        {tab === 'results' &&
+          (results.length === 0 ? (
+            <EmptyState
+              message="No semester results have been verified yet."
+              action={<LinkButton to="/mentor/verification">Open the verification queue</LinkButton>}
+            />
+          ) : (
+            <>
+              {results.length > 1 && (
+                <div className="border-b border-neutral-200 p-4 md:p-5">
+                  <LineChart
+                    points={results.map((r) => ({ label: r.semester.label, value: r.sgpa }))}
+                    threshold={{ value: 6, label: 'F3 threshold 6.0' }}
+                  />
+                </div>
+              )}
+              <DataTable columns={RESULT_COLUMNS} rows={results} />
+            </>
+          ))}
+
+        {tab === 'internals' &&
+          (internals.length === 0 ? (
+            <EmptyState
+              message="No internal marks have been verified yet."
+              action={<LinkButton to="/mentor/verification">Open the verification queue</LinkButton>}
+            />
+          ) : (
+            internals.map((sub) => (
+              <section key={sub.id}>
+                <h3 className="border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-sm font-semibold md:px-5">{sub.semester.label}</h3>
+                <DataTable columns={INTERNAL_COLUMNS} rows={sub.subjects} rowKey={(s) => s.subject_name} />
+              </section>
+            ))
+          ))}
+
         {tab === 'meetings' &&
           (meetings.length === 0 ? (
-            <EmptyState title="No meetings yet" />
+            <EmptyState
+              message="You have not met this student yet."
+              action={
+                <Button variant="secondary" onClick={() => setInviting(true)}>
+                  Invite to a meeting
+                </Button>
+              }
+            />
           ) : (
-            <ul className="divide-y divide-slate-100">
-              {[...meetings].reverse().map((m) => (
-                <MeetingItem key={m.id} meeting={m} perspective="mentor" />
-              ))}
-            </ul>
+            <MeetingTable meetings={[...meetings].reverse()} perspective="mentor" />
           ))}
-      </Card>
+      </Panel>
 
       <ResolveFlagModal flag={resolving} onClose={() => setResolving(null)} onResolved={state.reload} />
-      <InviteModal
-        open={inviting}
-        student={student}
-        onClose={() => setInviting(false)}
-        onInvited={state.reload}
-      />
+      <InviteModal open={inviting} student={student} onClose={() => setInviting(false)} onInvited={state.reload} />
     </>
   )
 }

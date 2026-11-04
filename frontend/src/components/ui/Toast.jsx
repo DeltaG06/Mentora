@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 
+// docs/ui-design-system.md §4.9: bottom-right, monochrome, 4s.
 const ToastContext = createContext(null)
+const DURATION_MS = 4000
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -14,8 +15,8 @@ export function ToastProvider({ children }) {
   const push = useCallback(
     (tone, message) => {
       const id = nextId.current++
-      setToasts((list) => [...list.slice(-3), { id, tone, message }])
-      setTimeout(() => dismiss(id), tone === 'error' ? 6000 : 4000)
+      setToasts((list) => [...list.slice(-2), { id, tone, message }])
+      setTimeout(() => dismiss(id), DURATION_MS)
     },
     [dismiss],
   )
@@ -32,32 +33,27 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={api}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:left-auto sm:items-end"
         aria-live="polite"
       >
-        {toasts.map((toast) => {
-          const Icon = toast.tone === 'error' ? AlertCircle : CheckCircle2
-          return (
-            <div
-              key={toast.id}
-              className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-lg"
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            role={toast.tone === 'error' ? 'alert' : 'status'}
+            className={`pointer-events-auto flex w-full max-w-sm animate-enter-up items-start gap-3 rounded-md bg-neutral-900 px-4 py-3 shadow-overlay ${
+              toast.tone === 'error' ? 'border-l-[3px] border-red-500' : ''
+            }`}
+          >
+            <p className="flex-1 text-sm text-white">{toast.message}</p>
+            <button
+              type="button"
+              onClick={() => dismiss(toast.id)}
+              className="shrink-0 text-sm font-medium text-neutral-300 hover:text-white"
             >
-              <Icon
-                className={`mt-0.5 h-4 w-4 shrink-0 ${toast.tone === 'error' ? 'text-red-600' : 'text-emerald-600'}`}
-                aria-hidden
-              />
-              <p className="flex-1 text-sm text-slate-800">{toast.message}</p>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                className="text-slate-400 hover:text-slate-700"
-                aria-label="Dismiss"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )
-        })}
+              Dismiss
+            </button>
+          </div>
+        ))}
       </div>
     </ToastContext.Provider>
   )

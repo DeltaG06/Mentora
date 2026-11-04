@@ -1,43 +1,57 @@
-import { AlertCircle, CheckCircle2, Info, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
 import { errorMessage } from '../../api/client'
 import { Button } from './Button'
 
-export function Spinner({ label = 'Loading…' }) {
+// docs/ui-design-system.md §4.10: skeletons, never spinners, after the first load.
+
+export function Skeleton({ className = '' }) {
+  return <div className={`rounded-sm bg-neutral-100 ${className}`} aria-hidden />
+}
+
+export function SkeletonRows({ rows = 4, columns = 4 }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {label}
+    <div role="status" aria-label="Loading">
+      {Array.from({ length: rows }, (_, row) => (
+        <div key={row} className="flex gap-6 border-b border-neutral-200 px-4 py-3 md:px-5">
+          {Array.from({ length: columns }, (_, col) => (
+            <Skeleton key={col} className={`h-4 ${col === 0 ? 'w-40' : 'flex-1'}`} />
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
 
-export function EmptyState({ icon: Icon, title, children, action }) {
+export function SkeletonBlock({ className = 'h-48' }) {
   return (
-    <div className="flex flex-col items-center px-4 py-10 text-center">
-      {Icon && (
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-          <Icon className="h-5 w-5" aria-hidden />
-        </div>
-      )}
-      <p className="text-sm font-medium text-slate-900">{title}</p>
-      {children && <p className="mt-1 max-w-sm text-sm text-slate-500">{children}</p>}
-      {action && <div className="mt-4">{action}</div>}
+    <div role="status" aria-label="Loading" className="p-4 md:p-5">
+      <Skeleton className={`w-full ${className}`} />
+    </div>
+  )
+}
+
+/** One explanatory sentence and one action. No illustrations. */
+export function EmptyState({ message, action }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+      <p className="max-w-md text-sm text-neutral-600">{message}</p>
+      {action}
     </div>
   )
 }
 
 const ALERT = {
-  error: { icon: AlertCircle, cls: 'border-red-200 bg-red-50 text-red-800' },
-  success: { icon: CheckCircle2, cls: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
-  info: { icon: Info, cls: 'border-brand-200 bg-brand-50 text-brand-900' },
-  warning: { icon: AlertCircle, cls: 'border-amber-200 bg-amber-50 text-amber-900' },
+  error: { icon: AlertCircle, cls: 'border-red-300 bg-red-50 text-red-600' },
+  warning: { icon: AlertCircle, cls: 'border-amber-500/40 bg-amber-50 text-amber-700' },
+  success: { icon: CheckCircle2, cls: 'border-green-500/40 bg-green-50 text-green-700' },
+  info: { icon: Info, cls: 'border-neutral-200 bg-neutral-50 text-neutral-700' },
 }
 
 export function Alert({ tone = 'info', title, children, className = '' }) {
   const { icon: Icon, cls } = ALERT[tone]
   return (
     <div
-      className={`flex gap-3 rounded-md border px-3.5 py-3 text-sm ${cls} ${className}`}
+      className={`flex gap-2.5 rounded-md border px-3.5 py-3 text-sm ${cls} ${className}`}
       role={tone === 'error' ? 'alert' : 'status'}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -51,11 +65,11 @@ export function Alert({ tone = 'info', title, children, className = '' }) {
 
 export function ErrorState({ error, onRetry }) {
   return (
-    <div className="p-4">
-      <Alert tone="error" title="Could not load this data">
+    <div className="p-4 md:p-5">
+      <Alert tone="error" title="This data could not be loaded.">
         <p>{errorMessage(error)}</p>
         {onRetry && (
-          <Button variant="link" className="mt-1 !text-red-800" onClick={onRetry}>
+          <Button variant="text" className="mt-1" onClick={onRetry}>
             Try again
           </Button>
         )}
@@ -64,12 +78,13 @@ export function ErrorState({ error, onRetry }) {
   )
 }
 
-/** Render loading / error / content for a useApi() result. */
-export function Loadable({ state, children }) {
-  if (state.loading && state.data === null) return <Spinner />
-  if (state.error && state.data === null) {
-    return <ErrorState error={state.error} onRetry={state.reload} />
-  }
+/**
+ * Loading / error / content for a useApi() result.
+ * `skeleton` is the placeholder shown while nothing has loaded yet.
+ */
+export function Loadable({ state, children, skeleton = <SkeletonRows /> }) {
+  if (state.loading && state.data === null) return skeleton
+  if (state.error && state.data === null) return <ErrorState error={state.error} onRetry={state.reload} />
   if (state.data === null) return null
   return children(state.data)
 }

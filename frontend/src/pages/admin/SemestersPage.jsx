@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, Plus } from 'lucide-react'
 import { api, errorMessage } from '../../api/client'
-import { StatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { Panel } from '../../components/ui/Card'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { DataTable } from '../../components/ui/DataTable'
 import { Alert, EmptyState, Loadable } from '../../components/ui/Feedback'
 import { Input } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { Status } from '../../components/ui/Status'
 import { useToast } from '../../components/ui/Toast'
 import { formatDate, formatDateTime, isoToLocalInput, localInputToIso } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
@@ -17,19 +16,21 @@ import { useApi } from '../../lib/useApi'
 function CreateModal({ open, onClose, onCreated }) {
   const toast = useToast()
   const [form, setForm] = useState({ label: '', start_date: '' })
+  const [labelError, setLabelError] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (open) {
       setForm({ label: '', start_date: '' })
+      setLabelError(null)
       setError(null)
     }
   }, [open])
 
   const submit = async (event) => {
     event.preventDefault()
-    if (!form.label.trim()) return setError('Enter a label, e.g. 2026-27 Odd.')
+    if (!form.label.trim()) return setLabelError('Enter a label, for example 2026-27 Odd.')
     setBusy(true)
     setError(null)
     try {
@@ -64,12 +65,15 @@ function CreateModal({ open, onClose, onCreated }) {
         </>
       }
     >
-      <form id="semester-form" onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
+      <form id="semester-form" onSubmit={submit} className="space-y-4" noValidate>
         <Input
           label="Label"
           value={form.label}
-          onChange={(e) => setForm({ ...form, label: e.target.value })}
+          onChange={(e) => {
+            setForm({ ...form, label: e.target.value })
+            setLabelError(null)
+          }}
+          error={labelError}
           placeholder="e.g. 2026-27 Odd"
           maxLength={50}
           required
@@ -81,6 +85,7 @@ function CreateModal({ open, onClose, onCreated }) {
           onChange={(e) => setForm({ ...form, start_date: e.target.value })}
           hint="Used to order semesters when comparing a student with their previous semester."
         />
+        {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>
   )
@@ -140,8 +145,7 @@ function DeadlinesModal({ semester, onClose, onSaved }) {
         </>
       }
     >
-      <form id="deadline-form" onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
+      <form id="deadline-form" onSubmit={submit} className="space-y-4" noValidate>
         <Input
           label="Internal marks deadline"
           type="datetime-local"
@@ -154,10 +158,11 @@ function DeadlinesModal({ semester, onClose, onSaved }) {
           value={form.result}
           onChange={(e) => setForm({ ...form, result: e.target.value })}
         />
-        <p className="text-xs leading-relaxed text-slate-500">
+        <p className="text-xs text-neutral-500">
           After a deadline passes, the daily check raises an F5 flag for every active student without a submission of that
           kind. Past dates are accepted so that records can be corrected.
         </p>
+        {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>
   )
@@ -171,29 +176,28 @@ export default function SemestersPage() {
   const [toggling, setToggling] = useState(null)
 
   const deadline = (value) => {
-    if (!value) return <span className="text-slate-400">Not set</span>
+    if (!value) return <span className="text-neutral-400">Not set</span>
     const past = new Date(value) < new Date()
-    return <span className={past ? 'text-slate-500' : 'text-slate-900'}>{formatDateTime(value)}</span>
+    return <span className={past ? 'text-neutral-500' : 'text-neutral-800'}>{formatDateTime(value)}</span>
   }
 
   const actions = (s) => (
-    <div className="flex justify-end gap-2">
-      <Button size="sm" variant="secondary" onClick={() => setEditing(s)}>
+    <>
+      <Button variant="text" onClick={() => setEditing(s)}>
         Deadlines
       </Button>
-      <Button size="sm" variant="ghost" onClick={() => setToggling(s)}>
+      <Button variant="text" onClick={() => setToggling(s)}>
         {s.status === 'open' ? 'Close' : 'Reopen'}
       </Button>
-    </div>
+    </>
   )
 
   const columns = [
-    { key: 'label', header: 'Semester', render: (s) => <span className="font-medium text-slate-900">{s.label}</span> },
-    { key: 'start', header: 'Starts', render: (s) => (s.start_date ? formatDate(`${s.start_date}T00:00:00`) : '—') },
+    { key: 'label', header: 'Semester', render: (s) => <span className="font-medium text-neutral-800">{s.label}</span> },
+    { key: 'start', header: 'Starts', render: (s) => (s.start_date ? formatDate(`${s.start_date}T00:00:00`) : null) },
     { key: 'internal', header: 'Internal deadline', render: (s) => deadline(s.internal_deadline) },
     { key: 'result', header: 'Result deadline', render: (s) => deadline(s.result_deadline) },
-    { key: 'status', header: 'Status', render: (s) => <StatusBadge status={s.status} kind="semester" /> },
-    { key: 'actions', header: <span className="sr-only">Actions</span>, className: 'text-right', mobile: false, render: actions },
+    { key: 'status', header: 'Status', render: (s) => <Status kind="semester" status={s.status} /> },
   ]
 
   return (
@@ -201,25 +205,26 @@ export default function SemestersPage() {
       <PageHeader
         title="Semesters"
         description="Open semesters accept submissions. Closing one stops new submissions."
-        actions={
-          <Button icon={Plus} onClick={() => setCreating(true)}>
-            New semester
-          </Button>
-        }
+        actions={<Button onClick={() => setCreating(true)}>New semester</Button>}
       />
-      <Card bodyClassName="">
+      <Panel bodyClassName="">
         <Loadable state={state}>
           {(list) =>
             list.length === 0 ? (
-              <EmptyState icon={CalendarDays} title="No semesters yet">
-                Create the current semester so students can submit their marks.
-              </EmptyState>
+              <EmptyState
+                message="There are no semesters yet. Create the current semester so students can submit their marks."
+                action={
+                  <Button variant="secondary" onClick={() => setCreating(true)}>
+                    New semester
+                  </Button>
+                }
+              />
             ) : (
-              <DataTable columns={columns} rows={list} mobileActions={actions} />
+              <DataTable columns={columns} rows={list} actions={actions} />
             )
           }
         </Loadable>
-      </Card>
+      </Panel>
 
       <CreateModal open={creating} onClose={() => setCreating(false)} onCreated={state.reload} />
       <DeadlinesModal semester={editing} onClose={() => setEditing(null)} onSaved={state.reload} />
@@ -227,6 +232,7 @@ export default function SemestersPage() {
         open={Boolean(toggling)}
         title={toggling?.status === 'open' ? `Close ${toggling?.label}?` : `Reopen ${toggling?.label}?`}
         confirmLabel={toggling?.status === 'open' ? 'Close semester' : 'Reopen semester'}
+        destructive={toggling?.status === 'open'}
         onClose={() => setToggling(null)}
         onConfirm={async () => {
           const status = toggling.status === 'open' ? 'closed' : 'open'
@@ -236,7 +242,7 @@ export default function SemestersPage() {
         }}
       >
         {toggling?.status === 'open'
-          ? 'Students will no longer be able to submit internal marks or results for this semester. Deadline checks continue to apply.'
+          ? 'Students will no longer be able to submit internal marks or results for this semester. Deadline checks still apply.'
           : 'Students will be able to submit for this semester again.'}
       </ConfirmModal>
     </>

@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
-import { FlagFilters } from '../../components/domain/FlagFilters'
+import { FlagFilters, hasFilters } from '../../components/domain/FlagFilters'
 import { FlagTable } from '../../components/domain/FlagTable'
 import { ResolveFlagModal } from '../../components/domain/ResolveFlagModal'
-import { Card } from '../../components/ui/Card'
+import { Button, LinkButton } from '../../components/ui/Button'
+import { Panel } from '../../components/ui/Card'
 import { EmptyState, Loadable } from '../../components/ui/Feedback'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Pagination } from '../../components/ui/Pagination'
 import { useApi } from '../../lib/useApi'
 
 const PAGE_SIZE = 20
+const NO_FILTERS = { status: '', rule: '', semester_id: '' }
 
 export default function MentorFlagsPage() {
-  const [filters, setFilters] = useState({ status: '', rule: '', semester_id: '' })
+  const [filters, setFilters] = useState(NO_FILTERS)
   const [page, setPage] = useState(1)
   const [resolving, setResolving] = useState(null)
 
@@ -23,7 +24,7 @@ export default function MentorFlagsPage() {
   return (
     <>
       <PageHeader title="Flags" description="Flags raised for your current mentees." />
-      <Card bodyClassName="">
+      <Panel bodyClassName="">
         <FlagFilters
           value={filters}
           onChange={(next) => {
@@ -34,13 +35,28 @@ export default function MentorFlagsPage() {
         <Loadable state={state}>
           {(data) =>
             data.items.length === 0 ? (
-              <EmptyState icon={ShieldCheck} title="No flags match these filters" />
+              hasFilters(filters) ? (
+                <EmptyState
+                  message="No flags match these filters."
+                  action={
+                    <Button variant="secondary" onClick={() => setFilters(NO_FILTERS)}>
+                      Clear filters
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  message="None of your mentees has a flag."
+                  action={<LinkButton to="/mentor">Back to roster</LinkButton>}
+                />
+              )
             ) : (
               <>
                 <FlagTable
                   flags={data.items}
                   showStudent
-                  studentLink={(flag) => `/mentor/mentees/${flag.student.id}`}
+                  detailPath={(flag) => `/mentor/flags/${flag.id}`}
+                  studentPath={(flag) => `/mentor/mentees/${flag.student.id}`}
                   onResolve={setResolving}
                 />
                 <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
@@ -48,7 +64,7 @@ export default function MentorFlagsPage() {
             )
           }
         </Loadable>
-      </Card>
+      </Panel>
       <ResolveFlagModal flag={resolving} onClose={() => setResolving(null)} onResolved={state.reload} />
     </>
   )

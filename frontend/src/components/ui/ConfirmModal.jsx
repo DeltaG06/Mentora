@@ -5,10 +5,10 @@ import { Alert } from './Feedback'
 import { Modal } from './Modal'
 
 /**
- * Confirmation dialog. `onConfirm` may be async; its error is shown inline
- * and the dialog stays open.
+ * Confirmation for state changes. `onConfirm` may be async; its error is
+ * shown inline and the dialog stays open. `destructive` styles the action red.
  */
-export function ConfirmModal({ open, title, children, confirmLabel = 'Confirm', tone = 'primary', onConfirm, onClose }) {
+export function ConfirmModal({ open, title, children, confirmLabel = 'Confirm', destructive = false, onConfirm, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -40,15 +40,15 @@ export function ConfirmModal({ open, title, children, confirmLabel = 'Confirm', 
       footer={
         <>
           <Button variant="secondary" onClick={close} disabled={busy}>
-            Back
+            Cancel
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={confirm} loading={busy}>
+          <Button variant={destructive ? 'destructive' : 'primary'} onClick={confirm} loading={busy}>
             {confirmLabel}
           </Button>
         </>
       }
     >
-      <div className="space-y-3 text-sm text-slate-700">
+      <div className="space-y-3 text-base text-neutral-700">
         {error && <Alert tone="error">{error}</Alert>}
         {children}
       </div>

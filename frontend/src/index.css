@@ -7,45 +7,60 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
-    font-feature-settings: 'cv11', 'ss01';
+    @apply bg-neutral-50 font-sans text-base text-neutral-800 antialiased;
+    /* Every number in the product is tabular so columns align. */
+    font-variant-numeric: tabular-nums;
   }
   h1,
   h2,
   h3 {
-    @apply text-slate-900;
+    @apply text-neutral-900;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-1;
+    @apply outline-none ring-2 ring-accent-700 ring-offset-2;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 }
 
 @layer components {
   .input {
-    @apply block w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900
-      placeholder:text-slate-400 h-11 sm:h-10
-      focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
-      disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+    @apply block h-11 w-full rounded-md border border-neutral-300 bg-neutral-0 px-3 text-base text-neutral-900
+      placeholder:text-neutral-400 md:h-9
+      focus:border-accent-700 focus:outline-none focus:ring-2 focus:ring-accent-700 focus:ring-offset-0
+      disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500;
   }
   textarea.input {
-    @apply h-auto py-2 leading-relaxed;
+    @apply h-auto py-2 leading-normal;
   }
   .input-invalid {
-    @apply border-red-400 focus:border-red-500 focus:ring-red-500/20;
+    @apply border-red-300 focus:border-red-600 focus:ring-red-600;
   }
   .label {
-    @apply mb-1.5 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-neutral-700;
   }
-  .card {
-    @apply rounded-lg border border-slate-200 bg-white shadow-card;
+  .panel {
+    @apply rounded-md border border-neutral-200 bg-neutral-0;
   }
-  .table-head {
-    @apply px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  .th {
+    @apply sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-left text-xs font-medium text-neutral-500;
   }
-  .table-cell {
-    @apply px-4 py-3 text-sm text-slate-700 align-top;
+  .td {
+    @apply border-b border-neutral-200 px-4 py-2.5 align-top text-sm text-neutral-700;
   }
   .link {
-    @apply font-medium text-brand-600 hover:text-brand-700 hover:underline;
+    @apply font-medium text-accent-700 hover:text-accent-600 hover:underline;
+  }
+  .meta {
+    @apply text-xs text-neutral-500;
+  }
+  .checkbox {
+    @apply h-4 w-4 rounded-sm border-neutral-300 text-accent-700 accent-accent-700;
   }
 }

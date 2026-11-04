@@ -1,5 +1,6 @@
 import { forwardRef, useId } from 'react'
 
+// docs/ui-design-system.md §4.4: labels above, helper or error text below.
 function FieldShell({ id, label, hint, error, required, children, className = '' }) {
   return (
     <div className={className}>
@@ -13,16 +14,13 @@ function FieldShell({ id, label, hint, error, required, children, className = ''
       {error ? (
         <p className="mt-1.5 text-xs text-red-600">{error}</p>
       ) : (
-        hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>
+        hint && <p className="mt-1.5 text-xs text-neutral-500">{hint}</p>
       )}
     </div>
   )
 }
 
-export const Input = forwardRef(function Input(
-  { label, hint, error, className, required, ...props },
-  ref,
-) {
+export const Input = forwardRef(function Input({ label, hint, error, className, required, ...props }, ref) {
   const id = useId()
   return (
     <FieldShell id={id} label={label} hint={hint} error={error} required={required} className={className}>
@@ -46,6 +44,7 @@ export function Select({ label, hint, error, className, required, children, ...p
         id={id}
         required={required}
         className={`input pr-8 ${error ? 'input-invalid' : ''}`}
+        aria-invalid={Boolean(error)}
         {...props}
       >
         {children}
@@ -63,6 +62,7 @@ export function Textarea({ label, hint, error, className, required, rows = 4, ..
         rows={rows}
         required={required}
         className={`input ${error ? 'input-invalid' : ''}`}
+        aria-invalid={Boolean(error)}
         {...props}
       />
     </FieldShell>

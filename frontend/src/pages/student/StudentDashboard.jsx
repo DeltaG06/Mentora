@@ -1,195 +1,215 @@
 import { Link } from 'react-router-dom'
-import { CalendarClock, Mail, TrendingUp, UserRound } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import { LineChart } from '../../components/charts/Charts'
-import { Badge, RuleBadge, StatusBadge } from '../../components/ui/Badge'
-import { Card } from '../../components/ui/Card'
-import { EmptyState, Loadable } from '../../components/ui/Feedback'
+import { LinkButton } from '../../components/ui/Button'
+import { Panel, SummaryCard } from '../../components/ui/Card'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState, ErrorState, Skeleton, SkeletonBlock } from '../../components/ui/Feedback'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { formatDateTime, formatRange, relativeTime } from '../../lib/format'
+import { FlagLine, Status } from '../../components/ui/Status'
+import { formatDate, formatDateTime, formatRange, relativeTime } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 
 function MentorCard({ mentor }) {
   return (
-    <Card title="Your mentor">
+    <SummaryCard label="Mentor">
       {mentor ? (
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-            <UserRound className="h-5 w-5" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <p className="font-medium text-slate-900">{mentor.name}</p>
-            <p className="text-sm text-slate-500">
-              {mentor.designation}, {mentor.department}
-            </p>
-            <a href={`mailto:${mentor.email}`} className="mt-2 inline-flex items-center gap-1.5 text-sm link">
-              <Mail className="h-3.5 w-3.5" aria-hidden />
-              {mentor.email}
-            </a>
-          </div>
+        <div className="mt-1">
+          <p className="text-md text-neutral-900">{mentor.name}</p>
+          <p className="text-sm text-neutral-600">
+            {mentor.designation}, {mentor.department}
+          </p>
+          <a href={`mailto:${mentor.email}`} className="link mt-1 inline-block text-sm">
+            {mentor.email}
+          </a>
         </div>
       ) : (
-        <p className="text-sm text-slate-500">
-          No mentor has been assigned to you yet. The scheme coordinator will allocate one.
-        </p>
+        <p className="mt-1 text-sm text-neutral-600">A mentor has not been assigned yet.</p>
       )}
-    </Card>
+    </SummaryCard>
   )
 }
 
 function DeadlineCard({ deadline }) {
   if (!deadline) {
     return (
-      <Card title="Next deadline">
-        <p className="text-sm text-slate-500">No upcoming submission deadlines.</p>
-      </Card>
+      <SummaryCard label="Next deadline">
+        <p className="mt-1 text-sm text-neutral-600">There are no upcoming submission deadlines.</p>
+      </SummaryCard>
     )
   }
-  const isInternal = deadline.kind === 'internal'
+  const internal = deadline.kind === 'internal'
   return (
-    <Card title="Next deadline">
-      <p className="text-sm text-slate-500">{deadline.semester.label}</p>
-      <p className="mt-0.5 font-medium text-slate-900">{isInternal ? 'Internal marks' : 'Semester result'}</p>
-      <p className="mt-2 text-sm text-slate-700">
-        {formatDateTime(deadline.deadline)}{' '}
-        <span className="text-slate-500">({relativeTime(deadline.deadline)})</span>
+    <SummaryCard label="Next deadline">
+      <p className="mt-1 text-md text-neutral-900">{internal ? 'Internal marks' : 'Semester result'}</p>
+      <p className="text-sm text-neutral-600">{deadline.semester.label}</p>
+      <p className="mt-1 text-sm text-neutral-700">
+        {formatDateTime(deadline.deadline)} <span className="text-neutral-500">({relativeTime(deadline.deadline)})</span>
       </p>
-      <div className="mt-3">
+      <div className="mt-2">
         {deadline.submitted ? (
-          <Badge tone="green">Submitted</Badge>
+          <Status kind="outcome" status="submitted" />
         ) : (
-          <Link to={isInternal ? '/student/internals' : '/student/results'} className="text-sm link">
+          <Link to={internal ? '/student/internals' : '/student/results'} className="link text-sm">
             Submit now
           </Link>
         )}
       </div>
-    </Card>
+    </SummaryCard>
   )
 }
 
-function FlagSummary({ counts }) {
+function FlagCountsCard({ counts }) {
   const rows = [
     ['Open', counts.open, 'text-red-600'],
-    ['In discussion', counts.in_discussion, 'text-brand-700'],
-    ['Escalated', counts.escalated, 'text-amber-600'],
-    ['Resolved', counts.resolved, 'text-emerald-700'],
+    ['In discussion', counts.in_discussion, 'text-neutral-900'],
+    ['Escalated', counts.escalated, 'text-amber-700'],
+    ['Resolved', counts.resolved, 'text-neutral-900'],
   ]
   return (
-    <Card title="Flags" actions={<Link to="/student/flags" className="text-sm link">View all</Link>}>
-      <dl className="grid grid-cols-2 gap-4">
+    <SummaryCard label="Flags">
+      <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-2">
         {rows.map(([label, value, color]) => (
           <div key={label}>
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className={`text-xl font-semibold tabular-nums ${value ? color : 'text-slate-300'}`}>{value}</dd>
+            <dt className="text-xs text-neutral-500">{label}</dt>
+            <dd className={`text-lg ${value ? color : 'text-neutral-400'}`}>{value}</dd>
           </div>
         ))}
       </dl>
-    </Card>
+    </SummaryCard>
   )
 }
+
+const UPCOMING_COLUMNS = [
+  { key: 'when', header: 'When', render: (row) => <span className="whitespace-nowrap">{formatRange(row.start, row.end)}</span> },
+  { key: 'type', header: 'Type' },
+  { key: 'with', header: 'With' },
+  { key: 'agenda', header: 'Agenda', mobileFull: true },
+]
 
 export default function StudentDashboard() {
   const { user } = useAuth()
   const state = useApi('/students/me/dashboard')
 
+  const header = (
+    <PageHeader
+      title="Dashboard"
+      description={`${user.roll_no} · ${user.department} · Year ${user.year}, Division ${user.division}`}
+    />
+  )
+
+  if (state.error && !state.data) {
+    return (
+      <>
+        {header}
+        <ErrorState error={state.error} onRetry={state.reload} />
+      </>
+    )
+  }
+  if (!state.data) {
+    return (
+      <>
+        {header}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="panel p-5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-3 h-6 w-32" />
+              <Skeleton className="mt-2 h-3 w-40" />
+            </div>
+          ))}
+        </div>
+        <div className="panel mt-6">
+          <SkeletonBlock className="h-56" />
+        </div>
+      </>
+    )
+  }
+
+  const data = state.data
+  const upcoming = [
+    ...data.upcoming_meetings.map((m) => ({
+      key: `m${m.id}`,
+      start: m.slot.start_time,
+      end: m.slot.end_time,
+      type: m.invited_by_mentor ? 'Meeting (mentor invitation)' : 'Meeting',
+      with: m.slot.mentor.name,
+      agenda: m.agenda,
+    })),
+    ...data.upcoming_group_sessions.map((s) => ({
+      key: `g${s.id}`,
+      start: s.start_time,
+      end: s.end_time,
+      type: 'Group session',
+      with: s.mentor.name,
+      agenda: s.title,
+    })),
+  ].sort((a, b) => new Date(a.start) - new Date(b.start))
+
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description={`${user.roll_no} · ${user.department} · Year ${user.year}, Division ${user.division}`}
-      />
-      <Loadable state={state}>
-        {(data) => {
-          const upcoming = [
-            ...data.upcoming_meetings.map((m) => ({
-              key: `m${m.id}`,
-              start: m.slot.start_time,
-              end: m.slot.end_time,
-              title: m.invited_by_mentor ? 'Meeting requested by your mentor' : 'One-to-one meeting',
-              detail: m.agenda,
-            })),
-            ...data.upcoming_group_sessions.map((s) => ({
-              key: `g${s.id}`,
-              start: s.start_time,
-              end: s.end_time,
-              title: `Group session: ${s.title}`,
-              detail: s.agenda,
-            })),
-          ].sort((a, b) => new Date(a.start) - new Date(b.start))
+      {header}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MentorCard mentor={data.mentor} />
+          <DeadlineCard deadline={data.next_deadline} />
+          <FlagCountsCard counts={data.flag_counts} />
+        </div>
 
-          return (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <MentorCard mentor={data.mentor} />
-                <DeadlineCard deadline={data.next_deadline} />
-                <FlagSummary counts={data.flag_counts} />
-              </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <Panel title="SGPA trend" description="Verified semester results" className="lg:col-span-3">
+            {data.sgpa_trend.length === 0 ? (
+              <EmptyState message="Your trend appears after your first result is verified." />
+            ) : (
+              <LineChart
+                points={data.sgpa_trend.map((p) => ({ label: p.semester.label, value: p.sgpa }))}
+                threshold={{ value: 6, label: 'F3 threshold 6.0' }}
+              />
+            )}
+          </Panel>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-                <Card title="SGPA trend" description="Verified semester results" className="lg:col-span-3">
-                  {data.sgpa_trend.length === 0 ? (
-                    <EmptyState icon={TrendingUp} title="No verified results yet">
-                      Your trend appears once a mentor verifies your first semester result.
-                    </EmptyState>
-                  ) : (
-                    <LineChart
-                      points={data.sgpa_trend.map((p) => ({ label: p.semester.label, value: p.sgpa }))}
-                      reference={{ value: 6, label: 'F3 threshold (6.0)' }}
-                    />
-                  )}
-                </Card>
+          <Panel title="Active flags" className="lg:col-span-2" bodyClassName="">
+            {data.active_flags.length === 0 ? (
+              <EmptyState
+                message="You have no unresolved flags."
+                action={<LinkButton to="/student/flags">View flag history</LinkButton>}
+              />
+            ) : (
+              <ul>
+                {data.active_flags.map((flag) => (
+                  <li key={flag.id} className="border-b border-neutral-200 last:border-b-0">
+                    <Link to={`/student/flags/${flag.id}`} className="block px-4 py-3 hover:bg-neutral-50 md:px-5">
+                      <FlagLine flag={flag} />
+                      <p className="mt-1 pl-[54px] text-xs text-neutral-500">
+                        {flag.semester.label} · raised {formatDate(flag.raised_at)}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </div>
 
-                <Card title="Active flags" className="lg:col-span-2" bodyClassName="">
-                  {data.active_flags.length === 0 ? (
-                    <p className="px-5 py-6 text-sm text-slate-500">You have no unresolved flags.</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {data.active_flags.map((flag) => (
-                        <li key={flag.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
-                          <RuleBadge rule={flag.rule} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-800">{flag.reason}</p>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {flag.semester.label} · raised {relativeTime(flag.raised_at)}
-                            </p>
-                          </div>
-                          <StatusBadge status={flag.status} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Card>
-              </div>
-
-              <Card
-                title="Coming up"
-                actions={<Link to="/student/meetings" className="text-sm link">Book a meeting</Link>}
-                bodyClassName=""
-              >
-                {upcoming.length === 0 ? (
-                  <EmptyState icon={CalendarClock} title="Nothing scheduled">
-                    Book one of your mentor's open slots when you want to talk.
-                  </EmptyState>
-                ) : (
-                  <ul className="divide-y divide-slate-100">
-                    {upcoming.map((item) => (
-                      <li key={item.key} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-6 sm:px-5">
-                        <span className="w-56 shrink-0 text-sm font-medium tabular-nums text-slate-900">
-                          {formatRange(item.start, item.end)}
-                        </span>
-                        <span className="min-w-0 text-sm">
-                          <span className="text-slate-800">{item.title}</span>
-                          {item.detail && <span className="block truncate text-slate-500">{item.detail}</span>}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            </div>
-          )
-        }}
-      </Loadable>
+        <Panel
+          title="Coming up"
+          actions={
+            <Link to="/student/meetings" className="link text-sm">
+              Book a meeting
+            </Link>
+          }
+          bodyClassName=""
+        >
+          {upcoming.length === 0 ? (
+            <EmptyState
+              message="Nothing is scheduled. Book one of your mentor's open slots when you want to talk."
+              action={<LinkButton to="/student/meetings">Book a meeting</LinkButton>}
+            />
+          ) : (
+            <DataTable columns={UPCOMING_COLUMNS} rows={upcoming} rowKey={(row) => row.key} />
+          )}
+        </Panel>
+      </div>
     </>
   )
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { CheckCircle2 } from 'lucide-react'
 import { errorMessage } from '../../api/client'
 import { HOME_BY_ROLE, useAuth } from '../../auth/AuthContext'
 import { Button } from '../../components/ui/Button'
@@ -85,17 +84,13 @@ export default function RegisterPage() {
   if (awaitingApproval) {
     return (
       <AuthShell title="Registration received">
-        <div className="card p-5">
-          <CheckCircle2 className="h-6 w-6 text-emerald-600" aria-hidden />
-          <p className="mt-3 text-sm text-slate-700">
-            Your mentor account for <span className="font-medium">{form.email.trim().toLowerCase()}</span> has
-            been created and is waiting for approval by the scheme coordinator.
-          </p>
-          <p className="mt-2 text-sm text-slate-700">You can sign in as soon as it is approved.</p>
-          <Link to="/login" className="mt-5 inline-block text-sm link">
-            Back to sign in
-          </Link>
-        </div>
+        <p className="text-base text-neutral-700">
+          The mentor account for <span className="font-medium">{form.email.trim().toLowerCase()}</span> has been
+          created and is waiting for approval by the scheme coordinator. You can sign in as soon as it is approved.
+        </p>
+        <Link to="/login" className="link mt-6 inline-block">
+          Back to sign in
+        </Link>
       </AuthShell>
     )
   }
@@ -113,7 +108,7 @@ export default function RegisterPage() {
         </>
       }
     >
-      <div className="mb-6 grid grid-cols-2 rounded-md border border-slate-300 p-1" role="radiogroup" aria-label="Account type">
+      <div className="mb-6 grid grid-cols-2 rounded-md border border-neutral-300 p-0.5" role="radiogroup" aria-label="Account type">
         {['student', 'mentor'].map((value) => (
           <button
             key={value}
@@ -124,11 +119,11 @@ export default function RegisterPage() {
               setRole(value)
               setErrors({})
             }}
-            className={`h-10 rounded text-sm font-medium transition-colors ${
-              role === value ? 'bg-brand-700 text-white' : 'text-slate-600 hover:bg-slate-100'
+            className={`h-10 rounded-sm text-base font-medium ${
+              role === value ? 'bg-accent-700 text-white' : 'text-neutral-700 hover:bg-neutral-50'
             }`}
           >
-            {value === 'student' ? 'Student' : 'Mentor (faculty)'}
+            {value === 'student' ? 'Student' : 'Mentor'}
           </button>
         ))}
       </div>

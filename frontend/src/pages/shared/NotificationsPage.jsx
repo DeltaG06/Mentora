@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { Bell, CheckCheck } from 'lucide-react'
 import { api, errorMessage } from '../../api/client'
 import { notifyNotificationsChanged } from '../../components/layout/NotificationBell'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { Button, LinkButton } from '../../components/ui/Button'
+import { Panel } from '../../components/ui/Card'
 import { EmptyState, Loadable } from '../../components/ui/Feedback'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Pagination } from '../../components/ui/Pagination'
@@ -54,52 +53,47 @@ export default function NotificationsPage() {
         title="Notifications"
         description="Updates about your records, flags and meetings."
         actions={
-          <Button variant="secondary" icon={CheckCheck} onClick={markAll} loading={busy} disabled={!hasUnread}>
+          <Button variant="secondary" onClick={markAll} loading={busy} disabled={!hasUnread}>
             Mark all as read
           </Button>
         }
       />
-      <Card bodyClassName="">
+      <Panel bodyClassName="">
         <Loadable state={state}>
           {(data) =>
             data.items.length === 0 ? (
-              <EmptyState icon={Bell} title="No notifications yet">
-                You will be notified when something needs your attention.
-              </EmptyState>
+              <EmptyState
+                message="You have no notifications. You are told here when something needs your attention."
+                action={<LinkButton to="/">Back to dashboard</LinkButton>}
+              />
             ) : (
               <>
-                <ul className="divide-y divide-slate-100">
+                <ul>
                   {data.items.map((notification) => (
-                    <li key={notification.id}>
+                    <li key={notification.id} className="border-b border-neutral-200">
                       <button
                         type="button"
                         onClick={() => markRead(notification)}
-                        className={`flex w-full gap-3 px-4 py-4 text-left sm:px-5 ${
-                          notification.is_read ? 'cursor-default' : 'bg-brand-50/40 hover:bg-brand-50'
-                        }`}
+                        className={`flex w-full gap-3 px-4 py-3 text-left md:px-5 ${notification.is_read ? 'cursor-default' : 'hover:bg-neutral-50'}`}
                       >
                         <span
-                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                            notification.is_read ? 'bg-slate-200' : 'bg-brand-600'
-                          }`}
+                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${notification.is_read ? '' : 'bg-neutral-800'}`}
                           aria-label={notification.is_read ? 'Read' : 'Unread'}
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-                            <span
-                              className={`text-sm ${notification.is_read ? 'text-slate-700' : 'font-semibold text-slate-900'}`}
-                            >
+                            <span className={`text-sm ${notification.is_read ? 'text-neutral-700' : 'font-medium text-neutral-900'}`}>
                               {notification.title}
                             </span>
                             <time
-                              className="text-xs text-slate-400"
+                              className="text-xs text-neutral-500"
                               dateTime={notification.created_at}
                               title={formatDateTime(notification.created_at)}
                             >
                               {relativeTime(notification.created_at)}
                             </time>
                           </span>
-                          <span className="mt-0.5 block text-sm text-slate-600">{notification.message}</span>
+                          <span className="mt-0.5 block text-sm text-neutral-600">{notification.message}</span>
                         </span>
                       </button>
                     </li>
@@ -110,7 +104,7 @@ export default function NotificationsPage() {
             )
           }
         </Loadable>
-      </Card>
+      </Panel>
     </>
   )
 }

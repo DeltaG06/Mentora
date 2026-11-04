@@ -2,20 +2,21 @@ import { RULE_LABELS } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 import { Select } from '../ui/Field'
 
-/** Status / rule / semester filters for flag lists. `statuses` limits the status options. */
-export function FlagFilters({ value, onChange, statuses = ['open', 'in_discussion', 'escalated', 'resolved'], extra }) {
+const STATUS_LABELS = { open: 'Open', in_discussion: 'In discussion', escalated: 'Escalated', resolved: 'Resolved' }
+
+/** Status / rule / semester filters for flag lists. `statuses={null}` hides the status filter. */
+export function FlagFilters({ value, onChange, statuses = ['open', 'in_discussion', 'escalated', 'resolved'] }) {
   const semesters = useApi('/semesters')
   const set = (field) => (event) => onChange({ ...value, [field]: event.target.value })
-  const labels = { open: 'Open', in_discussion: 'In discussion', escalated: 'Escalated', resolved: 'Resolved' }
 
   return (
-    <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-3 sm:px-5 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 border-b border-neutral-200 p-4 sm:grid-cols-3 md:px-5 lg:grid-cols-4">
       {statuses && (
         <Select aria-label="Status" value={value.status} onChange={set('status')}>
           <option value="">All statuses</option>
           {statuses.map((s) => (
             <option key={s} value={s}>
-              {labels[s]}
+              {STATUS_LABELS[s]}
             </option>
           ))}
         </Select>
@@ -36,7 +37,8 @@ export function FlagFilters({ value, onChange, statuses = ['open', 'in_discussio
           </option>
         ))}
       </Select>
-      {extra}
     </div>
   )
 }
+
+export const hasFilters = (value) => Object.values(value).some(Boolean)

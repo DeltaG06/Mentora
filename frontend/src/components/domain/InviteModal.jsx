@@ -4,12 +4,13 @@ import { api, errorMessage } from '../../api/client'
 import { formatRange } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 import { Button } from '../ui/Button'
-import { Alert, Spinner } from '../ui/Feedback'
+import { Alert, Skeleton } from '../ui/Feedback'
 import { Input, Select } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 
 const PRIORITY = { amber: 0, red: 1, green: 2 }
+const INDICATOR_NOTE = { amber: ' · escalated flag', red: ' · unresolved flag', green: '' }
 
 /**
  * Invite a mentee into an open slot. Pass `slot` to choose the student,
@@ -48,14 +49,12 @@ export function InviteModal({ open, slot, student, onClose, onInvited }) {
       setError(slot ? 'Choose a student.' : 'Choose a slot.')
       return
     }
-    const slotId = slot ? slot.id : Number(choice)
-    const studentId = slot ? Number(choice) : student.id
     setBusy(true)
     setError(null)
     try {
-      const body = { student_id: studentId }
+      const body = { student_id: slot ? Number(choice) : student.id }
       if (agenda.trim()) body.agenda = agenda.trim()
-      const { data } = await api.post(`/mentor/slots/${slotId}/invite`, body)
+      const { data } = await api.post(`/mentor/slots/${slot ? slot.id : Number(choice)}/invite`, body)
       toast.success(`${data.student.name} has been invited and notified.`)
       onInvited?.(data)
       onClose()
@@ -66,7 +65,7 @@ export function InviteModal({ open, slot, student, onClose, onInvited }) {
     }
   }
 
-  const loading = (slot && roster.loading && !roster.data) || (student && slots.loading && !slots.data)
+  const loading = (slot && !roster.data && !roster.error) || (student && !slots.data && !slots.error)
 
   return (
     <Modal
@@ -79,37 +78,38 @@ export function InviteModal({ open, slot, student, onClose, onInvited }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="invite-form" loading={busy}>
+          <Button type="submit" form="invite-form" loading={busy} disabled={Boolean(student) && openSlots.length === 0}>
             Send invitation
           </Button>
         </>
       }
     >
       {loading ? (
-        <Spinner />
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
       ) : (
-        <form id="invite-form" onSubmit={submit} className="space-y-4">
-          {error && <Alert tone="error">{error}</Alert>}
+        <form id="invite-form" onSubmit={submit} className="space-y-4" noValidate>
           {slot ? (
-            <Select label="Student" value={choice} onChange={(e) => setChoice(e.target.value)} required>
+            <Select label="Student" value={choice} onChange={(e) => setChoice(e.target.value)} error={error} required>
               <option value="">Select a mentee</option>
               {mentees.map((m) => (
                 <option key={m.student.id} value={m.student.id}>
-                  {m.student.name} ({m.student.roll_no})
-                  {m.indicator === 'amber' ? ' · escalated flag' : m.indicator === 'red' ? ' · flagged' : ''}
+                  {m.student.name} ({m.student.roll_no}){INDICATOR_NOTE[m.indicator]}
                 </option>
               ))}
             </Select>
           ) : openSlots.length === 0 ? (
             <Alert tone="info">
               You have no open upcoming slots.{' '}
-              <Link to="/mentor/slots" className="font-medium underline">
+              <Link to="/mentor/slots" className="link">
                 Publish a slot
               </Link>{' '}
               first.
             </Alert>
           ) : (
-            <Select label="Slot" value={choice} onChange={(e) => setChoice(e.target.value)} required>
+            <Select label="Slot" value={choice} onChange={(e) => setChoice(e.target.value)} error={error} required>
               <option value="">Select a slot</option>
               {openSlots.map((s) => (
                 <option key={s.id} value={s.id}>

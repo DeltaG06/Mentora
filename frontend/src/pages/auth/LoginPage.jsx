@@ -13,16 +13,21 @@ export default function LoginPage() {
   const location = useLocation()
   const [params] = useSearchParams()
   const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState(null)
-  const [pending, setPending] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [notice, setNotice] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   if (user) return <Navigate to={HOME_BY_ROLE[user.role]} replace />
 
   const onSubmit = async (event) => {
     event.preventDefault()
-    setError(null)
-    setPending(false)
+    const found = {}
+    if (!form.email.trim()) found.email = 'Enter your email address.'
+    if (!form.password) found.password = 'Enter your password.'
+    setErrors(found)
+    setNotice(null)
+    if (Object.keys(found).length) return
+
     setSubmitting(true)
     try {
       const signedIn = await login(form.email, form.password)
@@ -30,18 +35,26 @@ export default function LoginPage() {
       const home = HOME_BY_ROLE[signedIn.role]
       navigate(from && from.startsWith(home) ? from : home, { replace: true })
     } catch (err) {
+      const status = err.response?.status
       const message = errorMessage(err)
-      if (err.response?.status === 403 && /pending/i.test(message)) setPending(true)
-      else setError(message)
+      if (status === 401) setNotice({ tone: 'error', text: 'Incorrect email or password.' })
+      else if (status === 403 && /pending/i.test(message)) {
+        setNotice({ tone: 'warning', text: 'Your mentor account is waiting for approval by the scheme coordinator.' })
+      } else if (status === 403) setNotice({ tone: 'error', text: 'This account has been deactivated.' })
+      else setNotice({ tone: 'error', text: message })
     } finally {
       setSubmitting(false)
     }
   }
 
+  const set = (field) => (e) => {
+    setForm({ ...form, [field]: e.target.value })
+    if (errors[field]) setErrors({ ...errors, [field]: undefined })
+  }
+
   return (
     <AuthShell
       title="Sign in"
-      subtitle="Use the email address you registered with."
       footer={
         <>
           New to Mentora?{' '}
@@ -52,38 +65,18 @@ export default function LoginPage() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
-        {params.get('expired') && !error && !pending && (
-          <Alert tone="info">Your session has ended. Please sign in again.</Alert>
-        )}
-        {pending && (
-          <Alert tone="warning" title="Awaiting approval">
-            Your mentor account has not been approved yet. You will be able to sign in once the
-            scheme coordinator approves it.
-          </Alert>
-        )}
-        {error && <Alert tone="error">{error}</Alert>}
-        <Input
-          label="Email"
-          type="email"
-          autoComplete="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          required
-        />
+        {params.get('expired') && !notice && <Alert tone="info">Your session has ended. Please sign in again.</Alert>}
+        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+        <Input label="Email" type="email" autoComplete="email" value={form.email} onChange={set('email')} error={errors.email} />
         <Input
           label="Password"
           type="password"
           autoComplete="current-password"
           value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          required
+          onChange={set('password')}
+          error={errors.password}
         />
-        <Button
-          type="submit"
-          className="w-full"
-          loading={submitting}
-          disabled={!form.email || !form.password}
-        >
+        <Button type="submit" className="w-full" loading={submitting}>
           Sign in
         </Button>
       </form>

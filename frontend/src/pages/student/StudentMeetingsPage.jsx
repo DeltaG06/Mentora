@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { CalendarClock, CalendarX2 } from 'lucide-react'
 import { api, errorMessage } from '../../api/client'
-import { MeetingItem } from '../../components/domain/MeetingItem'
+import { MeetingTable } from '../../components/domain/MeetingTable'
 import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { Panel } from '../../components/ui/Card'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
-import { Alert, EmptyState, Loadable } from '../../components/ui/Feedback'
+import { DataTable } from '../../components/ui/DataTable'
+import { EmptyState, Loadable } from '../../components/ui/Feedback'
 import { Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Tabs } from '../../components/ui/Tabs'
 import { useToast } from '../../components/ui/Toast'
-import { formatDate, formatRange, formatTime, formatWeekday } from '../../lib/format'
+import { formatRange, formatTime, formatWeekday } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 
 const CANCEL_NOTICE_MS = 2 * 60 * 60 * 1000
@@ -21,10 +21,10 @@ function BookModal({ slot, onClose, onBooked }) {
   const [agenda, setAgenda] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [lastSlot, setLastSlot] = useState(null)
+  const [current, setCurrent] = useState(null)
 
-  if (slot !== lastSlot) {
-    setLastSlot(slot)
+  if (slot !== current) {
+    setCurrent(slot)
     setAgenda('')
     setError(null)
   }
@@ -67,12 +67,12 @@ function BookModal({ slot, onClose, onBooked }) {
         </>
       }
     >
-      <form id="book-form" onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
+      <form id="book-form" onSubmit={submit} noValidate>
         <Textarea
           label="Agenda"
           value={agenda}
           onChange={(e) => setAgenda(e.target.value)}
+          error={error}
           placeholder="e.g. Discuss my drop in SGPA and plan for the re-exam"
           maxLength={2000}
           required
@@ -82,95 +82,85 @@ function BookModal({ slot, onClose, onBooked }) {
   )
 }
 
-function OpenSlots({ onBooked, refreshKey }) {
-  const state = useApi('/students/me/mentor/slots', null, refreshKey)
-  const [booking, setBooking] = useState(null)
+const SLOT_COLUMNS = [
+  { key: 'day', header: 'Day', render: (s) => formatWeekday(s.start_time) },
+  { key: 'time', header: 'Time', render: (s) => `${formatTime(s.start_time)}–${formatTime(s.end_time)}` },
+  {
+    key: 'length',
+    header: 'Length',
+    align: 'right',
+    render: (s) => `${Math.round((new Date(s.end_time) - new Date(s.start_time)) / 60000)} min`,
+  },
+]
 
-  const byDay = useMemo(() => {
-    const groups = new Map()
-    for (const slot of state.data || []) {
-      const day = formatDate(slot.start_time)
-      if (!groups.has(day)) groups.set(day, [])
-      groups.get(day).push(slot)
-    }
-    return [...groups.entries()]
-  }, [state.data])
+function OpenSlots({ onBooked, refresh }) {
+  const state = useApi('/students/me/mentor/slots', null, refresh)
+  const [booking, setBooking] = useState(null)
 
   if (state.error?.response?.status === 404) {
     return (
-      <Card title="Book a meeting">
-        <p className="text-sm text-slate-500">You can book meetings once a mentor has been assigned to you.</p>
-      </Card>
+      <Panel title="Book a meeting">
+        <p className="text-sm text-neutral-600">You can book meetings once a mentor has been assigned to you.</p>
+      </Panel>
     )
   }
 
   return (
-    <Card title="Book a meeting" description="Open slots published by your mentor">
+    <Panel title="Book a meeting" description="Open slots published by your mentor" bodyClassName="">
       <Loadable state={state}>
         {(slots) =>
           slots.length === 0 ? (
-            <EmptyState icon={CalendarX2} title="No open slots right now">
-              Your mentor has not published any upcoming slots. Check back later.
-            </EmptyState>
+            <EmptyState
+              message="Your mentor has no open slots right now. Check again later."
+              action={
+                <Button variant="secondary" onClick={state.reload}>
+                  Refresh
+                </Button>
+              }
+            />
           ) : (
-            <div className="space-y-5">
-              {byDay.map(([day, list]) => (
-                <div key={day}>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {formatWeekday(list[0].start_time)}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {list.map((slot) => (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => setBooking(slot)}
-                        className="h-11 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium tabular-nums text-slate-800 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800 sm:h-10"
-                      >
-                        {formatTime(slot.start_time)}–{formatTime(slot.end_time)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DataTable
+              columns={SLOT_COLUMNS}
+              rows={slots}
+              actions={(slot) => (
+                <Button variant="text" onClick={() => setBooking(slot)}>
+                  Book
+                </Button>
+              )}
+            />
           )
         }
       </Loadable>
-      <BookModal
-        slot={booking}
-        onClose={() => setBooking(null)}
-        onBooked={onBooked}
-      />
-    </Card>
+      <BookModal slot={booking} onClose={() => setBooking(null)} onBooked={onBooked} />
+    </Panel>
   )
 }
 
 export default function StudentMeetingsPage() {
   const toast = useToast()
   const [tab, setTab] = useState('upcoming')
-  const [refreshKey, setRefreshKey] = useState(0)
-  const meetings = useApi('/students/me/meetings', null, refreshKey)
+  const [refresh, setRefresh] = useState(0)
+  const meetings = useApi('/students/me/meetings', null, refresh)
   const [cancelling, setCancelling] = useState(null)
+  const reload = () => setRefresh((n) => n + 1)
 
-  const list = useMemo(() => {
+  const { upcoming, past } = useMemo(() => {
     const now = Date.now()
-    const upcoming = (m) => m.status === 'scheduled' && new Date(m.slot.end_time).getTime() > now
-    const items = meetings.data || []
-    return tab === 'upcoming' ? items.filter(upcoming) : items.filter((m) => !upcoming(m)).reverse()
-  }, [meetings.data, tab])
-
-  const reloadAll = () => setRefreshKey((k) => k + 1)
+    const isUpcoming = (m) => m.status === 'scheduled' && new Date(m.slot.end_time).getTime() > now
+    const all = meetings.data || []
+    return { upcoming: all.filter(isUpcoming), past: all.filter((m) => !isUpcoming(m)).reverse() }
+  }, [meetings.data])
+  const list = tab === 'upcoming' ? upcoming : past
 
   return (
     <>
       <PageHeader title="Meetings" description="One-to-one meetings with your mentor." />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card bodyClassName="">
-          <div className="px-4 pt-2 sm:px-5">
+      <div className="space-y-6">
+        <Panel bodyClassName="">
+          <div className="border-b border-neutral-200 px-4 md:px-5">
             <Tabs
               tabs={[
-                { value: 'upcoming', label: 'Upcoming' },
+                { value: 'upcoming', label: 'Upcoming', count: meetings.data ? upcoming.length : undefined },
                 { value: 'past', label: 'Past' },
               ]}
               value={tab}
@@ -180,62 +170,63 @@ export default function StudentMeetingsPage() {
           <Loadable state={meetings}>
             {() =>
               list.length === 0 ? (
-                <EmptyState icon={CalendarClock} title={tab === 'upcoming' ? 'No upcoming meetings' : 'No past meetings'} />
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {list.map((meeting) => {
-                    const lateToCancel = new Date(meeting.slot.start_time).getTime() - Date.now() < CANCEL_NOTICE_MS
-                    return (
-                      <MeetingItem
-                        key={meeting.id}
-                        meeting={meeting}
-                        perspective="student"
-                        actions={
-                          meeting.status === 'scheduled' ? (
-                            <div className="text-right">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={lateToCancel}
-                                onClick={() => setCancelling(meeting)}
-                              >
-                                Cancel
-                              </Button>
-                              {lateToCancel && (
-                                <p className="mt-1 max-w-[12rem] text-xs text-slate-500">
-                                  Less than 2 hours to go. Contact your mentor directly.
-                                </p>
-                              )}
-                            </div>
-                          ) : null
-                        }
-                      />
+                <EmptyState
+                  message={tab === 'upcoming' ? 'You have no upcoming meetings.' : 'You have no past meetings.'}
+                  action={
+                    tab === 'upcoming' ? (
+                      <Button variant="secondary" onClick={() => document.getElementById('open-slots')?.scrollIntoView()}>
+                        See open slots
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" onClick={() => setTab('upcoming')}>
+                        View upcoming meetings
+                      </Button>
                     )
-                  })}
-                </ul>
+                  }
+                />
+              ) : (
+                <MeetingTable
+                  meetings={list}
+                  perspective="student"
+                  actions={(meeting) => {
+                    if (meeting.status !== 'scheduled') return null
+                    const late = new Date(meeting.slot.start_time).getTime() - Date.now() < CANCEL_NOTICE_MS
+                    return late ? (
+                      <span className="text-xs text-neutral-500" title="Less than 2 hours to go. Contact your mentor directly.">
+                        Cannot cancel
+                      </span>
+                    ) : (
+                      <Button variant="text" onClick={() => setCancelling(meeting)}>
+                        Cancel
+                      </Button>
+                    )
+                  }}
+                />
               )
             }
           </Loadable>
-        </Card>
-        <OpenSlots onBooked={reloadAll} refreshKey={refreshKey} />
+        </Panel>
+        <div id="open-slots">
+          <OpenSlots onBooked={reload} refresh={refresh} />
+        </div>
       </div>
 
       <ConfirmModal
         open={Boolean(cancelling)}
         title="Cancel this meeting?"
         confirmLabel="Cancel meeting"
-        tone="danger"
+        destructive
         onClose={() => setCancelling(null)}
         onConfirm={async () => {
           await api.post(`/meetings/${cancelling.id}/cancel`)
           toast.success('Meeting cancelled. The slot is open again.')
-          reloadAll()
+          reload()
         }}
       >
         {cancelling && (
           <p>
-            Your meeting on <span className="font-medium">{formatRange(cancelling.slot.start_time, cancelling.slot.end_time)}</span>{' '}
-            will be cancelled and your mentor will be notified.
+            Your meeting on {formatRange(cancelling.slot.start_time, cancelling.slot.end_time)} will be cancelled and your mentor
+            notified.
           </p>
         )}
       </ConfirmModal>

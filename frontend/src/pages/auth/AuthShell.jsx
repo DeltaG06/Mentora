@@ -1,51 +1,23 @@
-import { GraduationCap } from 'lucide-react'
-
+// docs/ui-design-system.md §6.7: form left, one institutional panel right.
 export function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="flex min-h-screen bg-white">
-      <aside className="relative hidden w-[42%] max-w-xl flex-col justify-between overflow-hidden bg-brand-900 p-10 text-white lg:flex">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white/10">
-            <GraduationCap className="h-5 w-5" aria-hidden />
-          </span>
-          <span className="text-lg font-semibold">Mentora</span>
-        </div>
-        <div>
-          <p className="text-2xl font-semibold leading-snug">
-            The institute mentorship scheme, run on records instead of reminders.
-          </p>
-          <dl className="mt-8 space-y-4 text-sm text-brand-100">
-            <div>
-              <dt className="font-medium text-white">Verified academics</dt>
-              <dd>Students upload internals and results; mentors verify them.</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-white">Early warning</dt>
-              <dd>Five fixed rules raise flags the moment a record is verified.</dd>
-            </div>
-            <div>
-              <dt className="font-medium text-white">Documented follow-up</dt>
-              <dd>Meetings, minutes and resolutions stay on file for review.</dd>
-            </div>
-          </dl>
-        </div>
-        <p className="text-xs text-brand-200">Goa College of Engineering · Mentor–mentee scheme</p>
-      </aside>
-
+    <div className="flex min-h-screen bg-neutral-0">
       <main className="flex flex-1 items-start justify-center px-4 py-10 sm:items-center sm:px-8">
-        <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-700 text-white">
-              <GraduationCap className="h-5 w-5" aria-hidden />
-            </span>
-            <span className="text-lg font-semibold text-slate-900">Mentora</span>
+        <div className="w-full max-w-[400px]">
+          <div className="mb-8 lg:hidden">
+            <p className="text-lg font-semibold text-neutral-900">Mentora</p>
+            <p className="text-sm text-neutral-500">Goa College of Engineering</p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>}
+          <h1 className="text-xl font-semibold">{title}</h1>
+          {subtitle && <p className="mt-1 text-base text-neutral-500">{subtitle}</p>}
           <div className="mt-8">{children}</div>
-          {footer && <div className="mt-8 text-sm text-slate-600">{footer}</div>}
+          {footer && <div className="mt-8 text-base text-neutral-600">{footer}</div>}
         </div>
       </main>
+      <aside className="hidden w-[45%] flex-col justify-end bg-accent-700 p-12 lg:flex" aria-hidden>
+        <p className="text-lg font-semibold text-white">Mentora</p>
+        <p className="mt-1 text-base text-white/80">Goa College of Engineering · Mentor–mentee scheme</p>
+      </aside>
     </div>
   )
 }

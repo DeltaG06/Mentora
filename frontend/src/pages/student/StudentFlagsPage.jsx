@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
 import { FlagTable } from '../../components/domain/FlagTable'
-import { RuleBadge } from '../../components/ui/Badge'
-import { Card } from '../../components/ui/Card'
+import { LinkButton } from '../../components/ui/Button'
+import { Panel } from '../../components/ui/Card'
 import { EmptyState, Loadable } from '../../components/ui/Feedback'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Pagination } from '../../components/ui/Pagination'
+import { RuleId } from '../../components/ui/Status'
 import { useApi } from '../../lib/useApi'
 
 const PAGE_SIZE = 20
@@ -29,36 +29,37 @@ export default function StudentFlagsPage() {
         description="Flags are raised automatically when a verified record meets one of the scheme’s rules."
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <Card bodyClassName="">
+        <Panel bodyClassName="">
           <Loadable state={state}>
             {(data) =>
               data.items.length === 0 ? (
-                <EmptyState icon={ShieldCheck} title="No flags">
-                  Nothing in your verified records needs attention.
-                </EmptyState>
+                <EmptyState
+                  message="You have no flags. Nothing in your verified records needs attention."
+                  action={<LinkButton to="/student">Back to dashboard</LinkButton>}
+                />
               ) : (
                 <>
-                  <FlagTable flags={data.items} />
+                  <FlagTable flags={data.items} detailPath={(flag) => `/student/flags/${flag.id}`} />
                   <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
                 </>
               )
             }
           </Loadable>
-        </Card>
-        <Card title="How flags work">
+        </Panel>
+        <Panel title="How flags work">
           <ul className="space-y-3">
             {RULES.map(([rule, text]) => (
-              <li key={rule} className="flex gap-3 text-sm text-slate-600">
-                <RuleBadge rule={rule} />
+              <li key={rule} className="flex gap-2 text-sm text-neutral-600">
+                <RuleId rule={rule} />
                 <span>{text}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-4 border-t border-slate-100 pt-4 text-xs leading-relaxed text-slate-500">
-            Your mentor discusses each flag with you in a meeting and records how it was resolved. Flags left
-            open for 14 days are escalated to the scheme coordinator.
+          <p className="mt-4 border-t border-neutral-200 pt-4 text-xs text-neutral-500">
+            Your mentor discusses each flag with you in a meeting and records how it was resolved. Flags left open for 14 days
+            are escalated to the scheme coordinator.
           </p>
-        </Card>
+        </Panel>
       </div>
     </>
   )

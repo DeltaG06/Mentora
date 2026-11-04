@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, HOME_BY_ROLE, useAuth } from './auth/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
-import { Spinner } from './components/ui/Feedback'
+import { SkeletonBlock } from './components/ui/Feedback'
 import { ToastProvider } from './components/ui/Toast'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
@@ -31,14 +31,18 @@ const AllocationsPage = page(() => import('./pages/admin/AllocationsPage'))
 const SemestersPage = page(() => import('./pages/admin/SemestersPage'))
 const AdminFlagsPage = page(() => import('./pages/admin/AdminFlagsPage'))
 
+const FlagDetailPage = page(() => import('./pages/shared/FlagDetailPage'))
 const NotificationsPage = page(() => import('./pages/shared/NotificationsPage'))
 const ProfilePage = page(() => import('./pages/shared/ProfilePage'))
 const NotFoundPage = page(() => import('./pages/shared/NotFoundPage'))
 
+// The only progress indicator allowed: before the session is restored.
 function FullScreenSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Spinner />
+    <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+      <span className="h-1 w-24 overflow-hidden rounded-full bg-neutral-200">
+        <span className="block h-full w-1/3 animate-pulse rounded-full bg-accent-700" />
+      </span>
     </div>
   )
 }
@@ -65,7 +69,7 @@ function Home() {
 
 function Lazy() {
   return (
-    <Suspense fallback={<Spinner />}>
+    <Suspense fallback={<SkeletonBlock className="h-64" />}>
       <Outlet />
     </Suspense>
   )
@@ -89,6 +93,7 @@ export default function App() {
                     <Route path="student/internals" element={<InternalsPage />} />
                     <Route path="student/results" element={<ResultsPage />} />
                     <Route path="student/flags" element={<StudentFlagsPage />} />
+                    <Route path="student/flags/:flagId" element={<FlagDetailPage />} />
                     <Route path="student/meetings" element={<StudentMeetingsPage />} />
                     <Route path="student/sessions" element={<StudentSessionsPage />} />
                   </Route>
@@ -98,6 +103,7 @@ export default function App() {
                     <Route path="mentor/verification" element={<VerificationPage />} />
                     <Route path="mentor/mentees/:studentId" element={<MenteeDetailPage />} />
                     <Route path="mentor/flags" element={<MentorFlagsPage />} />
+                    <Route path="mentor/flags/:flagId" element={<FlagDetailPage />} />
                     <Route path="mentor/slots" element={<SlotsPage />} />
                     <Route path="mentor/meetings" element={<MentorMeetingsPage />} />
                     <Route path="mentor/sessions" element={<MentorSessionsPage />} />
@@ -110,6 +116,7 @@ export default function App() {
                     <Route path="admin/allocations" element={<AllocationsPage />} />
                     <Route path="admin/semesters" element={<SemestersPage />} />
                     <Route path="admin/flags" element={<AdminFlagsPage />} />
+                    <Route path="admin/flags/:flagId" element={<FlagDetailPage />} />
                   </Route>
 
                   <Route path="notifications" element={<NotificationsPage />} />

@@ -1,120 +1,65 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Inbox } from 'lucide-react'
 import { api, errorMessage } from '../../api/client'
-import { ProofViewer } from '../../components/domain/ProofViewer'
-import { RuleBadge, StatusBadge } from '../../components/ui/Badge'
-import { Button } from '../../components/ui/Button'
-import { Card } from '../../components/ui/Card'
+import { effectiveText } from '../../components/domain/MarksGrid'
+import { openProof, ProofViewer } from '../../components/domain/ProofViewer'
+import { Button, LinkButton } from '../../components/ui/Button'
+import { Panel } from '../../components/ui/Card'
 import { DataTable } from '../../components/ui/DataTable'
 import { Alert, EmptyState, Loadable } from '../../components/ui/Feedback'
 import { Select, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { FlagLine, Status } from '../../components/ui/Status'
 import { Tabs } from '../../components/ui/Tabs'
 import { useToast } from '../../components/ui/Toast'
 import { formatDateTime, formatSgpa } from '../../lib/format'
 import { useApi } from '../../lib/useApi'
 
 const KINDS = {
-  internal: { path: '/mentor/internal-submissions', label: 'Internal marks', key: 'submission' },
-  result: { path: '/mentor/results', label: 'Semester results', key: 'result' },
+  internal: { path: '/mentor/internal-submissions', label: 'Internals' },
+  result: { path: '/mentor/results', label: 'Results' },
 }
 
-function InternalDetail({ record }) {
-  return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-50">
-          <tr>
-            <th className="table-head">Subject</th>
-            <th className="table-head text-center">I1</th>
-            <th className="table-head text-center">I2</th>
-            <th className="table-head text-center">I3</th>
-            <th className="table-head text-center">Max / test</th>
-            <th className="table-head text-right">Effective</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {record.subjects.map((s) => (
-            <tr key={s.subject_name}>
-              <td className="table-cell font-medium text-slate-900">{s.subject_name}</td>
-              {[s.i1, s.i2, s.i3].map((m, i) => (
-                <td key={i} className="table-cell text-center tabular-nums">
-                  {m ?? <span className="text-slate-300">—</span>}
-                </td>
-              ))}
-              <td className="table-cell text-center tabular-nums">{s.max_per_test}</td>
-              <td className="table-cell text-right tabular-nums">
-                {s.effective_internal === null ? (
-                  <span className="text-slate-400">On verify</span>
-                ) : (
-                  `${s.effective_internal.toFixed(1)} (${((s.effective_internal / s.max_per_test) * 100).toFixed(0)}%)`
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
+const INTERNAL_COLUMNS = [
+  { key: 'subject_name', header: 'Subject' },
+  { key: 'i1', header: 'I1', align: 'right' },
+  { key: 'i2', header: 'I2', align: 'right' },
+  { key: 'i3', header: 'I3', align: 'right' },
+  { key: 'max_per_test', header: 'Max / test', align: 'right' },
+  { key: 'effective', header: 'Effective', align: 'right', render: effectiveText },
+]
 
-function ResultDetail({ record }) {
-  return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">SGPA claimed</p>
-        <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{formatSgpa(record.sgpa)}</p>
-        <ul className="mt-4 divide-y divide-slate-100 rounded-md border border-slate-200">
-          {record.subjects.map((s) => (
-            <li key={s.subject_name} className="flex justify-between gap-3 px-3 py-2 text-sm">
-              <span className="text-slate-700">{s.subject_name}</span>
-              <span className={`tabular-nums ${s.final_marks < 40 ? 'font-medium text-red-600' : 'text-slate-900'}`}>
-                {s.final_marks}/{s.max_marks}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Proof</p>
-        <ProofViewer path={`/mentor/results/${record.id}/proof`} />
-      </div>
-    </div>
-  )
-}
+const RESULT_COLUMNS = [
+  { key: 'subject_name', header: 'Subject' },
+  {
+    key: 'final_marks',
+    header: 'Final',
+    align: 'right',
+    render: (s) => <span className={s.final_marks < 40 ? 'text-red-600' : ''}>{s.final_marks}</span>,
+  },
+  { key: 'max_marks', header: 'Max', align: 'right' },
+]
 
-function FlagsRaised({ flags, studentId }) {
-  if (flags.length === 0) {
-    return (
-      <Alert tone="success" title="Verified. No flags raised.">
-        The record did not meet any flag rule.
-      </Alert>
-    )
-  }
+function Outcome({ flags, studentId }) {
+  if (flags.length === 0) return <Alert tone="success">Verified. No flags raised.</Alert>
   return (
-    <div className="rounded-md border border-red-200 bg-red-50 p-4">
-      <p className="flex items-center gap-2 font-semibold text-red-800">
-        <AlertTriangle className="h-5 w-5" aria-hidden />
-        {flags.length} flag{flags.length === 1 ? '' : 's'} raised
-      </p>
-      <ul className="mt-3 space-y-2">
+    <Alert tone="error" title={`${flags.length} flag${flags.length === 1 ? '' : 's'} raised`}>
+      <ul className="mt-2 space-y-1.5">
         {flags.map((flag) => (
-          <li key={flag.id} className="flex items-start gap-3 rounded bg-white px-3 py-2 text-sm">
-            <RuleBadge rule={flag.rule} />
-            <span className="text-slate-800">{flag.reason}</span>
+          <li key={flag.id}>
+            <FlagLine flag={flag} />
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-sm text-red-900">
-        The student has been notified. Plan a meeting from their{' '}
-        <Link to={`/mentor/mentees/${studentId}`} className="font-medium underline">
-          profile
+      <p className="mt-2 text-neutral-700">
+        The student has been notified.{' '}
+        <Link to={`/mentor/mentees/${studentId}`} className="link">
+          Open their record
         </Link>{' '}
-        or the Slots page.
+        to plan a meeting.
       </p>
-    </div>
+    </Alert>
   )
 }
 
@@ -122,6 +67,7 @@ function ReviewModal({ kind, record, onClose, onDone }) {
   const toast = useToast()
   const [mode, setMode] = useState('review')
   const [note, setNote] = useState('')
+  const [noteError, setNoteError] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [raised, setRaised] = useState(null)
@@ -131,6 +77,7 @@ function ReviewModal({ kind, record, onClose, onDone }) {
     setCurrent(record)
     setMode('review')
     setNote('')
+    setNoteError(null)
     setError(null)
     setRaised(null)
   }
@@ -155,7 +102,7 @@ function ReviewModal({ kind, record, onClose, onDone }) {
 
   const reject = async () => {
     if (!note.trim()) {
-      setError('Explain what the student needs to correct.')
+      setNoteError('Explain what the student needs to correct.')
       return
     }
     setBusy(true)
@@ -173,15 +120,14 @@ function ReviewModal({ kind, record, onClose, onDone }) {
   }
 
   let footer = null
-  if (mode === 'done') {
-    footer = <Button onClick={onClose}>Done</Button>
-  } else if (mode === 'reject') {
+  if (mode === 'done') footer = <Button onClick={onClose}>Done</Button>
+  else if (mode === 'reject') {
     footer = (
       <>
         <Button variant="secondary" onClick={() => setMode('review')} disabled={busy}>
           Back
         </Button>
-        <Button variant="danger" onClick={reject} loading={busy}>
+        <Button variant="destructive" onClick={reject} loading={busy}>
           Return to student
         </Button>
       </>
@@ -189,10 +135,10 @@ function ReviewModal({ kind, record, onClose, onDone }) {
   } else if (pending) {
     footer = (
       <>
-        <Button variant="secondary" onClick={() => setMode('reject')} disabled={busy}>
+        <Button variant="destructive" onClick={() => setMode('reject')} disabled={busy}>
           Reject
         </Button>
-        <Button icon={CheckCircle2} onClick={verify} loading={busy}>
+        <Button onClick={verify} loading={busy}>
           Verify
         </Button>
       </>
@@ -205,12 +151,14 @@ function ReviewModal({ kind, record, onClose, onDone }) {
       onClose={onClose}
       size="lg"
       title={`${record.student.name} · ${record.semester.label}`}
-      description={`${KINDS[kind].label} · ${record.student.roll_no} · submitted ${formatDateTime(record.submitted_at)}`}
+      description={`${kind === 'internal' ? 'Internal marks' : 'Semester result'} · ${record.student.roll_no} · submitted ${formatDateTime(
+        record.submitted_at,
+      )}`}
       footer={footer}
     >
       <div className="space-y-5">
+        {mode === 'done' && <Outcome flags={raised} studentId={record.student.id} />}
         {error && <Alert tone="error">{error}</Alert>}
-        {mode === 'done' && <FlagsRaised flags={raised} studentId={record.student.id} />}
         {record.status === 'rejected' && record.rejection_note && (
           <Alert tone="warning" title="Returned to the student">
             {record.rejection_note}
@@ -220,8 +168,12 @@ function ReviewModal({ kind, record, onClose, onDone }) {
           <Textarea
             label="Reason for returning"
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. The DSA marks do not match the uploaded result. Please correct and resubmit."
+            onChange={(e) => {
+              setNote(e.target.value)
+              if (noteError) setNoteError(null)
+            }}
+            error={noteError}
+            placeholder="e.g. The marks do not match the uploaded result. Please correct and resubmit."
             hint="The student sees this note and can submit again."
             required
           />
@@ -229,12 +181,30 @@ function ReviewModal({ kind, record, onClose, onDone }) {
           mode === 'review' && (
             <>
               {pending && (
-                <p className="text-sm text-slate-600">
-                  Check the figures against {kind === 'result' ? 'the proof' : 'your records'}. Verified records cannot be
-                  changed, and verification runs the flag rules immediately.
+                <p className="text-base text-neutral-600">
+                  Check the figures against {kind === 'result' ? 'the proof' : 'your records'}. A verified record cannot be
+                  changed, and verifying runs the flag rules immediately.
                 </p>
               )}
-              {kind === 'internal' ? <InternalDetail record={record} /> : <ResultDetail record={record} />}
+              {kind === 'internal' ? (
+                <div className="rounded-md border border-neutral-200">
+                  <DataTable columns={INTERNAL_COLUMNS} rows={record.subjects} rowKey={(s) => s.subject_name} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-neutral-500">SGPA claimed</p>
+                    <p className="text-xl text-neutral-900">{formatSgpa(record.sgpa)}</p>
+                    <div className="mt-3 rounded-md border border-neutral-200">
+                      <DataTable columns={RESULT_COLUMNS} rows={record.subjects} rowKey={(s) => s.subject_name} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs text-neutral-500">Proof</p>
+                    <ProofViewer path={`/mentor/results/${record.id}/proof`} />
+                  </div>
+                </div>
+              )}
             </>
           )
         )}
@@ -243,9 +213,18 @@ function ReviewModal({ kind, record, onClose, onDone }) {
   )
 }
 
-function Queue({ kind, status, onChanged, refresh }) {
+function Queue({ kind, status, refresh, onChanged }) {
+  const toast = useToast()
   const state = useApi(KINDS[kind].path, { status }, refresh)
   const [selected, setSelected] = useState(null)
+
+  const viewProof = async (record) => {
+    try {
+      await openProof(`/mentor/results/${record.id}/proof`)
+    } catch (err) {
+      toast.error(errorMessage(err, 'The proof file could not be opened.'))
+    }
+  }
 
   const columns = [
     {
@@ -253,45 +232,51 @@ function Queue({ kind, status, onChanged, refresh }) {
       header: 'Student',
       render: (r) => (
         <span>
-          <span className="font-medium text-slate-900">{r.student.name}</span>
-          <span className="block text-xs text-slate-500">{r.student.roll_no}</span>
+          <span className="font-medium text-neutral-800">{r.student.name}</span>
+          <span className="block font-mono text-xs text-neutral-500">{r.student.roll_no}</span>
         </span>
       ),
     },
     { key: 'semester', header: 'Semester', render: (r) => r.semester.label },
     kind === 'result'
-      ? { key: 'sgpa', header: 'SGPA', render: (r) => <span className="tabular-nums">{formatSgpa(r.sgpa)}</span> }
-      : { key: 'subjects', header: 'Subjects', render: (r) => r.subjects.length },
+      ? { key: 'sgpa', header: 'SGPA', align: 'right', render: (r) => formatSgpa(r.sgpa) }
+      : { key: 'subjects', header: 'Subjects', align: 'right', render: (r) => r.subjects.length },
     { key: 'submitted', header: 'Submitted', render: (r) => formatDateTime(r.submitted_at) },
-    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-    {
-      key: 'open',
-      header: <span className="sr-only">Open</span>,
-      className: 'text-right',
-      mobile: false,
-      render: () => <span className="text-sm font-medium text-brand-600">{status === 'pending' ? 'Review' : 'View'}</span>,
+    kind === 'result' && {
+      key: 'proof',
+      header: 'Proof',
+      render: (r) => (
+        <Button variant="text" onClick={() => viewProof(r)}>
+          View proof
+        </Button>
+      ),
     },
-  ]
+    { key: 'status', header: 'Status', render: (r) => <Status kind="submission" status={r.status} /> },
+  ].filter(Boolean)
 
   return (
     <>
       <Loadable state={state}>
         {(rows) =>
           rows.length === 0 ? (
-            <EmptyState icon={Inbox} title={status === 'pending' ? 'Nothing waiting for verification' : `No ${status} records`}>
-              {status === 'pending' && 'New submissions from your mentees will appear here.'}
-            </EmptyState>
+            <EmptyState
+              message={status === 'pending' ? 'Nothing is waiting for verification.' : `There are no ${status} records.`}
+              action={<LinkButton to="/mentor">Back to roster</LinkButton>}
+            />
           ) : (
-            <DataTable columns={columns} rows={rows} onRowClick={setSelected} />
+            <DataTable
+              columns={columns}
+              rows={rows}
+              actions={(r) => (
+                <Button variant="text" onClick={() => setSelected(r)}>
+                  {r.status === 'pending' ? 'Review' : 'View'}
+                </Button>
+              )}
+            />
           )
         }
       </Loadable>
-      <ReviewModal
-        kind={kind}
-        record={selected}
-        onClose={() => setSelected(null)}
-        onDone={onChanged}
-      />
+      <ReviewModal kind={kind} record={selected} onClose={() => setSelected(null)} onDone={onChanged} />
     </>
   )
 }
@@ -306,36 +291,24 @@ export default function VerificationPage() {
   return (
     <>
       <PageHeader title="Verification" description="Check your mentees' submissions. Verifying a record runs the flag rules." />
-      <Card bodyClassName="">
-        <div className="flex flex-col gap-3 px-4 pt-2 sm:flex-row sm:items-end sm:justify-between sm:px-5">
+      <Panel bodyClassName="">
+        <div className="flex flex-col gap-2 border-b border-neutral-200 px-4 md:flex-row md:items-center md:justify-between md:px-5">
           <Tabs
-            className="flex-1"
             tabs={[
-              { value: 'internal', label: 'Internal marks', count: internal.data?.length },
-              { value: 'result', label: 'Semester results', count: results.data?.length },
+              { value: 'internal', label: KINDS.internal.label, count: internal.data?.length },
+              { value: 'result', label: KINDS.result.label, count: results.data?.length },
             ]}
             value={kind}
             onChange={setKind}
           />
-          <Select
-            aria-label="Status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="pb-3 sm:w-44"
-          >
+          <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className="pb-3 md:w-40 md:pb-0">
             <option value="pending">Pending</option>
             <option value="verified">Verified</option>
             <option value="rejected">Rejected</option>
           </Select>
         </div>
-        <Queue
-          key={`${kind}-${status}`}
-          kind={kind}
-          status={status}
-          refresh={refresh}
-          onChanged={() => setRefresh((n) => n + 1)}
-        />
-      </Card>
+        <Queue key={`${kind}-${status}`} kind={kind} status={status} refresh={refresh} onChanged={() => setRefresh((n) => n + 1)} />
+      </Panel>
     </>
   )
 }
