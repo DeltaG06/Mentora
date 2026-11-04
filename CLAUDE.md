@@ -107,3 +107,5 @@ Do NOT invent endpoints, rename fields, or add features not in the contract.
 5. All timestamps UTC, timezone-aware.
 6. No frontend work unless explicitly requested.
 7. Changing the contract/schema docs requires asking first.
+
+docs/ui-design-system.md is binding for all frontend work.
