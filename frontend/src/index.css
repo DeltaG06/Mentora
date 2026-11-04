@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1,
+  h2,
+  h3 {
+    @apply text-slate-900;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-1;
+  }
+}
+
+@layer components {
+  .input {
+    @apply block w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900
+      placeholder:text-slate-400 h-11 sm:h-10
+      focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
+      disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+  }
+  textarea.input {
+    @apply h-auto py-2 leading-relaxed;
+  }
+  .input-invalid {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500/20;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+  .card {
+    @apply rounded-lg border border-slate-200 bg-white shadow-card;
+  }
+  .table-head {
+    @apply px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+  .table-cell {
+    @apply px-4 py-3 text-sm text-slate-700 align-top;
+  }
+  .link {
+    @apply font-medium text-brand-600 hover:text-brand-700 hover:underline;
+  }
+}
