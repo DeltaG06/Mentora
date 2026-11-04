@@ -10,6 +10,8 @@ passlib[bcrypt]
 bcrypt==4.0.1
 python-multipart
 apscheduler>=3.10,<4
+# PostgreSQL driver (production); SQLite needs nothing extra
+psycopg[binary]>=3.2,<4
 # zoneinfo data for the Asia/Kolkata schedule on Windows
 tzdata
 
