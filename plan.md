@@ -43,7 +43,7 @@ Step	Name	Status	Commit
 15	Student screens	✅	899d4dc
 16	Mentor screens	✅	899d4dc
 17	Admin screens	✅	899d4dc
-18	Responsive polish	✅	02c9b82
+18	Responsive polish	✅	d0a6e45
 19	Test hardening	✅	d98a412
 20	Demo seed script	✅	ffc6ae5
 21	Deployment	🟡 config + README done; live deploy needs accounts	
