@@ -1,0 +1,40 @@
+# Render blueprint for the Mentora API (New > Blueprint, point it at this repo).
+# The database is Neon PostgreSQL: paste its connection string into DATABASE_URL.
+services:
+  - type: web
+    name: mentora-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # Free instances have no pre-deploy hook, so migrations run on start.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JOB_SECRET
+        generateValue: true
+      - key: TOKEN_EXPIRE_MINUTES
+        value: "120"
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false

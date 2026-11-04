@@ -37,16 +37,16 @@ Step	Name	Status	Commit
 9	Semester results + proof files	✅	ef20228
 10	Slots + meetings + group sessions	✅	27124bc
 11	Notifications + email + scheduled jobs	✅	2c63e54
-12	Dashboards	⬜	
-13	Frontend scaffold	⬜	
-14	Auth flow + layouts	⬜	
-15	Student screens	⬜	
-16	Mentor screens	⬜	
-17	Admin screens	⬜	
-18	Responsive polish	⬜	
-19	Test hardening	⬜	
-20	Demo seed script	⬜	
-21	Deployment	⬜	
+12	Dashboards	✅	6ef8cae
+13	Frontend scaffold	✅	899d4dc
+14	Auth flow + layouts	✅	899d4dc
+15	Student screens	✅	899d4dc
+16	Mentor screens	✅	899d4dc
+17	Admin screens	✅	899d4dc
+18	Responsive polish	✅	02c9b82
+19	Test hardening	✅	d98a412
+20	Demo seed script	✅	ffc6ae5
+21	Deployment	🟡 config + README done; live deploy needs accounts	
 =====================================================================BACKEND
 STEP 1 — Scaffold
 Build: venv, requirements.txt (fastapi, uvicorn[standard], sqlalchemy,alembic, pydantic-settings, PyJWT, passlib[bcrypt], bcrypt,python-multipart, pytest, httpx). Structure: app/main.py (FastAPI, CORSfor localhost:5173+3000, GET /api/v1/health), app/core/config.py(pydantic-settings: DATABASE_URL sqlite default, SECRET_KEY,TOKEN_EXPIRE_MINUTES=120), app/db.py (engine/SessionLocal/Base/get_db,check_same_thread only for sqlite), empty app/api/deps.py..env.example + .gitignore (venv, .env, pycache, *.db, uploads/).Verify: install ok, uvicorn boots, /api/v1/health -> {"status":"ok"},/docs loads. Commit "chore: backend scaffold".
