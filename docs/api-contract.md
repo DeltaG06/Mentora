@@ -1,6 +1,6 @@
 # Mentora — REST API Contract
 
-Modules 1–10 are implemented. Dashboards (Module 11) are added next.
+All eleven modules below are implemented.
 
 ## Global Conventions
 
@@ -858,6 +858,128 @@ both jobs, which are idempotent.
 - `200` `{"deadline_flags_raised": 0, "flags_escalated": 1, "reminders_sent": 2}`
 - `401` `Invalid job secret`
 - `404` when `JOB_SECRET` is not configured (endpoint disabled)
+
+---
+
+## Module 11 — Dashboards
+
+Read-only summaries for each role. They never change data.
+
+**Flag indicator** (mentor roster): `amber` when the student has an
+`escalated` flag, otherwise `red` when they have any other unresolved flag
+(`open`, `in_discussion`), otherwise `green`.
+
+**Semester order** (SGPA trend, "latest" SGPA): by `start_date`, then `id`;
+semesters without a `start_date` come after dated ones.
+
+### GET /mentor/dashboard
+
+Mentor only. Not paginated (a mentor has about 15 mentees).
+
+```json
+{
+  "mentees": [
+    {
+      "student": {"id": 7, "name": "Rohan Naik", "roll_no": "23CE045", "department": "Computer", "year": 2, "division": "A"},
+      "latest_sgpa": 6.4,
+      "unresolved_flags": 1,
+      "indicator": "red"
+    }
+  ],
+  "pending_internal_submissions": 1,
+  "pending_results": 2,
+  "upcoming_meetings": 3,
+  "upcoming_group_sessions": 1
+}
+```
+
+`mentees` is the caller's active mentees ordered by name. `latest_sgpa` is the
+SGPA of the most recent verified result, or null. The pending counts cover
+active mentees only. The upcoming counts are `scheduled` meetings and group
+sessions that have not started.
+
+### GET /mentor/mentees/{student_id}
+
+Mentor only, active mentee only; anyone else gets `404 Student not found`.
+
+```json
+{
+  "student": {"id": 7, "name": "Rohan Naik", "email": "rohan@gec.ac.in", "phone": null, "roll_no": "23CE045", "department": "Computer", "year": 2, "division": "A"},
+  "results": [Result, ...],
+  "internal_submissions": [Internal submission, ...],
+  "flags": [Flag, ...],
+  "meetings": [Meeting, ...]
+}
+```
+
+`results` and `internal_submissions` are verified records only, oldest
+semester first. `flags` is every flag of the student, newest first.
+`meetings` is every meeting between this mentor and the student, by slot start.
+
+### GET /students/me/dashboard
+
+Student only.
+
+```json
+{
+  "mentor": {"id": 4, "name": "Anjali Desai", "department": "Computer", "designation": "Associate Professor", "email": "anjali@gec.ac.in"},
+  "sgpa_trend": [{"semester": {"id": 1, "label": "2025-26 Even"}, "sgpa": 8.2}],
+  "flag_counts": {"open": 1, "in_discussion": 0, "escalated": 0, "resolved": 2},
+  "active_flags": [Flag, ...],
+  "upcoming_meetings": [Meeting, ...],
+  "upcoming_group_sessions": [Group session, ...],
+  "next_deadline": {"semester": {"id": 2, "label": "2026-27 Odd"}, "kind": "internal", "deadline": "2026-11-20T18:29:00Z", "submitted": false}
+}
+```
+
+- `mentor` is null when no mentor is assigned.
+- `sgpa_trend` lists verified results in semester order.
+- `active_flags` are the unresolved flags, newest first.
+- `next_deadline` is the earliest future deadline (`internal` or `result`) of
+  an `open` semester, or null. `submitted` is true when the student already
+  has a live (`pending` or `verified`) submission of that kind.
+
+### GET /admin/dashboard
+
+Admin only. Query: `semester_id` (limits the flag figures to one semester).
+
+```json
+{
+  "active_students": 40,
+  "allocated_students": 38,
+  "coverage_percent": 95.0,
+  "pending_mentors": 2,
+  "flag_counts": {"open": 4, "in_discussion": 1, "escalated": 1, "resolved": 9},
+  "avg_resolution_hours": 52.5,
+  "mentors": [
+    {"mentor": {"id": 4, "name": "Anjali Desai", "department": "Computer", "designation": "Associate Professor", "email": "anjali@gec.ac.in"},
+     "active_mentees": 13, "meetings_completed": 6, "meetings_scheduled": 2,
+     "group_sessions_completed": 1, "unresolved_flags": 3}
+  ]
+}
+```
+
+- `coverage_percent` = allocated active students / active students × 100,
+  rounded to 1 decimal; `0.0` when there are no active students.
+- `avg_resolution_hours` is the mean of `resolved_at − raised_at` over
+  resolved flags, rounded to 1 decimal, or null when none are resolved.
+- `mentors` lists every active mentor, ordered by name.
+
+### GET /admin/analytics
+
+Admin only. Query: `semester_id` (limits `flags_by_rule`), `weeks` (1–52,
+default 8).
+
+```json
+{
+  "flags_by_rule": [{"rule": "F1", "count": 3}, {"rule": "F2", "count": 1}, {"rule": "F3", "count": 2}, {"rule": "F4", "count": 0}, {"rule": "F5", "count": 4}],
+  "meetings_trend": [{"week_start": "2026-09-14", "completed": 3}]
+}
+```
+
+`flags_by_rule` always lists F1–F5. `meetings_trend` has one entry per week
+(Monday, UTC) for the last `weeks` weeks, oldest first, counting meetings by
+`completed_at`.
 
 ---
 

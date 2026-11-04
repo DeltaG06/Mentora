@@ -4,6 +4,7 @@ from app.api.routes import (
     admin_users,
     allocations,
     auth,
+    dashboards,
     flags,
     group_sessions,
     internal_submissions,
@@ -29,3 +30,4 @@ api_router.include_router(meetings.router)
 api_router.include_router(group_sessions.router)
 api_router.include_router(notifications.router)
 api_router.include_router(jobs.router)
+api_router.include_router(dashboards.router)
